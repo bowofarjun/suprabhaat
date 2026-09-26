@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  suprabhaat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bowofarjun/suprabhaat:latest
+    container_name: suprabhaat-bot
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.8-flash}
+      - RECIPIENT_NUMBERS=${RECIPIENT_NUMBERS:-}
+      - FB_PAGE_ID=${FB_PAGE_ID:-}
+      - FB_PAGE_ACCESS_TOKEN=${FB_PAGE_ACCESS_TOKEN:-}
+      - CRON_SCHEDULE=${CRON_SCHEDULE:-0 7 * * *}
+      - CRON_TIMEZONE=${CRON_TIMEZONE:-Asia/Kolkata}
+      - DRY_RUN=${DRY_RUN:-false}
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      - WWEBJS_AUTH_PATH=/app/.wwebjs_auth
+    volumes:
+      - suprabhaat_auth:/app/.wwebjs_auth
+      - ./public/images:/app/public/images
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health/liveness').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  suprabhaat_auth:
+    driver: local

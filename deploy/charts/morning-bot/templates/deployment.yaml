@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "morning-bot.fullname" . }}
+  labels:
+    {{- include "morning-bot.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "morning-bot.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "morning-bot.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "{{ .Values.service.port }}"
+            - name: HOST
+              value: "0.0.0.0"
+            - name: NODE_ENV
+              value: {{ .Values.env.nodeEnv | quote }}
+            - name: CRON_SCHEDULE
+              value: {{ .Values.env.cronSchedule | quote }}
+            - name: CRON_TIMEZONE
+              value: {{ .Values.env.cronTimezone | quote }}
+            - name: DRY_RUN
+              value: {{ .Values.env.dryRun | quote }}
+            - name: RECIPIENT_NUMBERS
+              value: {{ .Values.env.recipientNumbers | quote }}
+            - name: GEMINI_MODEL
+              value: {{ .Values.env.geminiModel | quote }}
+            - name: PUPPETEER_EXECUTABLE_PATH
+              value: "/usr/bin/chromium"
+            - name: WWEBJS_AUTH_PATH
+              value: {{ .Values.persistence.mountPath | quote }}
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "morning-bot.fullname" . }}-secrets
+                  key: GEMINI_API_KEY
+            - name: FB_PAGE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "morning-bot.fullname" . }}-secrets
+                  key: FB_PAGE_ID
+            - name: FB_PAGE_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "morning-bot.fullname" . }}-secrets
+                  key: FB_PAGE_ACCESS_TOKEN
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: auth-storage
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: auth-storage
+          persistentVolumeClaim:
+            claimName: {{ include "morning-bot.fullname" . }}-auth-pvc
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,17 @@
+apiVersion: v2
+name: morning-bot
+description: Autonomous daily WhatsApp and Facebook morning blessings bot and web portal
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: bowofarjun
+    email: bowofarjun@gmail.com
+    url: https://github.com/bowofarjun
+keywords:
+  - whatsapp
+  - devotional
+  - blessings
+  - facebook
+  - gemini
+  - suprabhaat

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SuPrabhaat (सुप्रभात) • Daily Morning Devotional Blessings</title>
+  <meta name="description" content="Autonomous daily WhatsApp & Facebook devotional morning blessings bot and sacred gallery.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Rozha+One&family=Yatra+One&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-symbol">🌅</div>
+        <div class="brand-text">
+          <h1 class="brand-title">SuPrabhaat <span class="hindi-brand">सुप्रभात</span></h1>
+          <p class="brand-subtitle">Autonomous Morning Devotional Dispatch & Sacred Gallery</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Live IST Clock -->
+        <div class="clock-badge">
+          <span class="clock-icon">🕰️</span>
+          <span id="liveClock">--:--:-- IST</span>
+        </div>
+
+        <!-- WhatsApp Connection Status -->
+        <div id="waStatusBadge" class="status-badge status-disconnected" onclick="openWhatsAppModal()">
+          <span class="status-dot"></span>
+          <span id="waStatusText">WhatsApp: Checking...</span>
+        </div>
+
+        <!-- Send on Demand CTA -->
+        <button class="btn btn-primary" onclick="openDispatchModal()">
+          <span class="btn-icon">✨</span>
+          <span>Send On Demand</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="hero-content">
+      <div class="hero-eyebrow">Auspicious Mornings • Divine Grace • Daily Harmony</div>
+      <h2 class="hero-heading">Begin Every Day with Sacred Blessings</h2>
+      <p class="hero-desc">
+        Automated morning devotional portraits and AI-generated blessings dispatched daily at 
+        <strong id="cronTimeDisplay">07:00 AM IST</strong> to WhatsApp and Facebook.
+      </p>
+
+      <div class="hero-stats">
+        <div class="stat-card">
+          <span class="stat-icon">🕉️</span>
+          <div class="stat-info">
+            <span class="stat-value">7 Sacred Deities</span>
+            <span class="stat-label">Traditional Weekly Cycle</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">🎨</span>
+          <div class="stat-info">
+            <span class="stat-value" id="imageCountDisplay">Loading...</span>
+            <span class="stat-label">High-Resolution Artworks</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">⚡</span>
+          <div class="stat-info">
+            <span class="stat-value">Instant Dispatch</span>
+            <span class="stat-label">WhatsApp & Facebook</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Gallery & Control Container -->
+  <main class="main-container">
+    <!-- Day Filter Bar -->
+    <section class="filter-section">
+      <div class="filter-header">
+        <div class="filter-title-group">
+          <h3 class="filter-title">Sacred Artwork Gallery</h3>
+          <span class="filter-hint">Filter by day of the week (Default: Monday)</span>
+        </div>
+        
+        <div class="quick-tools">
+          <button class="btn btn-secondary btn-sm" onclick="triggerScheduledRunNow()">
+            <span>⏰ Trigger Today's Routine</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="openHistoryModal()">
+            <span>📜 Dispatch History</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Tabs: Monday is DEFAULT Active -->
+      <div class="filter-tabs" id="dayFilterTabs">
+        <!-- Injected via JavaScript with Monday active by default -->
+      </div>
+    </section>
+
+    <!-- Gallery Grid -->
+    <section class="gallery-section">
+      <div id="galleryGrid" class="gallery-grid">
+        <!-- Rendered dynamically -->
+        <div class="loading-spinner-container">
+          <div class="spiritual-spinner"></div>
+          <p>Loading sacred artworks...</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- On-Demand Send Modal -->
+  <div id="dispatchModal" class="modal-overlay hidden" onclick="handleModalBackdropClick(event, 'dispatchModal')">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">🪔</span>
+          <div>
+            <h3 class="modal-title">Send Blessing On Demand</h3>
+            <p class="modal-sub">Generate and dispatch devotional morning blessings instantly</p>
+          </div>
+        </div>
+        <button class="btn-close" onclick="closeDispatchModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <form id="dispatchForm" onsubmit="handleDispatchSubmit(event)">
+          <!-- Day Selector -->
+          <div class="form-group">
+            <label class="form-label" for="modalDaySelect">Selected Day & Sacred Deity</label>
+            <select id="modalDaySelect" class="form-select" onchange="handleModalDayChange(this.value)">
+              <!-- Options populated by JS -->
+            </select>
+          </div>
+
+          <!-- Image Preview Selector -->
+          <div class="form-group">
+            <label class="form-label">Attached Artwork</label>
+            <div class="artwork-preview-card" id="modalArtworkPreview">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Blessing Text Generator / Editor -->
+          <div class="form-group">
+            <div class="label-with-action">
+              <label class="form-label" for="modalBlessingText">Devotional Blessing Text (2-Lines)</label>
+              <button type="button" class="btn-text" onclick="regenerateAiBlessing()">
+                <span>✨ Regenerate with AI</span>
+              </button>
+            </div>
+            <textarea 
+              id="modalBlessingText" 
+              class="form-textarea" 
+              rows="3" 
+              placeholder="Crafting morning blessing with divine grace..."></textarea>
+            <span class="form-hint">Tip: 2 lines of devotional English greeting with serene emojis.</span>
+          </div>
+
+          <!-- Dispatch Channels Selection -->
+          <div class="form-group">
+            <label class="form-label">Dispatch Channels</label>
+            <div class="checkbox-row">
+              <label class="custom-checkbox">
+                <input type="checkbox" id="channelWhatsApp" checked>
+                <span class="checkbox-box"></span>
+                <span class="checkbox-text">WhatsApp Web <small id="waRecipientSummary">(Default recipients)</small></span>
+              </label>
+
+              <label class="custom-checkbox">
+                <input type="checkbox" id="channelFacebook" checked>
+                <span class="checkbox-box"></span>
+                <span class="checkbox-text">Facebook Page <small id="fbStatusSummary">(Meta Graph API)</small></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Dry Run Mode Option -->
+          <div class="form-group highlight-box">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="modalDryRun">
+              <span class="checkbox-box"></span>
+              <span class="checkbox-text">
+                <strong>Simulate with Dry-Run Mode</strong>
+                <small>Test AI generation and log output without sending real messages to contacts</small>
+              </span>
+            </label>
+          </div>
+
+          <!-- Custom Recipient Override -->
+          <div class="form-group">
+            <label class="form-label" for="modalCustomRecipients">Custom WhatsApp Recipient (Optional)</label>
+            <input 
+              type="text" 
+              id="modalCustomRecipients" 
+              class="form-input" 
+              placeholder="e.g. +919876543210 (leave empty to use default recipients)">
+          </div>
+
+          <!-- Submit Action -->
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDispatchModal()">Cancel</button>
+            <button type="submit" id="btnSendNow" class="btn btn-primary btn-lg">
+              <span class="btn-icon">🌸</span>
+              <span id="btnSendNowText">Send Blessings Now</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Dispatch Result Area -->
+        <div id="dispatchResultArea" class="dispatch-result-box hidden">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WhatsApp QR Scanner Modal -->
+  <div id="waModal" class="modal-overlay hidden" onclick="handleModalBackdropClick(event, 'waModal')">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">📱</span>
+          <div>
+            <h3 class="modal-title">WhatsApp Web Link</h3>
+            <p class="modal-sub">Scan the QR code to authenticate morning dispatches</p>
+          </div>
+        </div>
+        <button class="btn-close" onclick="closeWhatsAppModal()">&times;</button>
+      </div>
+
+      <div class="modal-body text-center">
+        <div id="waQrContainer" class="qr-container">
+          <div class="spiritual-spinner"></div>
+          <p>Checking WhatsApp Web session...</p>
+        </div>
+
+        <div class="qr-instructions">
+          <h4>How to authenticate:</h4>
+          <ol>
+            <li>Open <strong>WhatsApp</strong> on your mobile phone.</li>
+            <li>Tap <strong>Settings</strong> &gt; <strong>Linked Devices</strong>.</li>
+            <li>Tap <strong>Link a Device</strong> and point your camera at this QR code.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Lightbox Modal -->
+  <div id="lightboxModal" class="lightbox-overlay hidden" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+    <div class="lightbox-content" onclick="event.stopPropagation()">
+      <img id="lightboxImage" src="" alt="Sacred Deity Artwork">
+      <div class="lightbox-caption">
+        <h4 id="lightboxTitle">Lord Shiva</h4>
+        <p id="lightboxBlessing"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Modal -->
+  <div id="historyModal" class="modal-overlay hidden" onclick="handleModalBackdropClick(event, 'historyModal')">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">📜</span>
+          <div>
+            <h3 class="modal-title">Dispatch History & Audit</h3>
+            <p class="modal-sub">Recent morning blessing triggers and on-demand dispatches</p>
+          </div>
+        </div>
+        <button class="btn-close" onclick="closeHistoryModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="historyModalBody">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <p>🕉️ <strong>SuPrabhaat (सुप्रभात)</strong> • Crafted with devotion, resilience & elegance.</p>
+      <p class="footer-sub">Autonomous WhatsApp & Facebook Morning Bot | Kubernetes & Docker Ready</p>
+    </div>
+  </footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
