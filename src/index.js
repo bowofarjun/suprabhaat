@@ -101,7 +101,11 @@ async function bootstrap() {
   process.on('SIGTERM', shutdown);
 }
 
-bootstrap().catch((err) => {
-  logger.error(`Bootstrap error: ${err.message}`, { stack: err.stack });
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'test') {
+  bootstrap().catch((err) => {
+    logger.error(`Bootstrap error: ${err.message}`, { stack: err.stack });
+    process.exit(1);
+  });
+}
+
+export { app, bootstrap };
