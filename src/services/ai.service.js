@@ -1,6 +1,7 @@
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import { getDayConfig } from '../constants/deities.js';
+import { getFormattedDateTimeStamp } from '../utils/date.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -132,17 +133,19 @@ export async function getOrGenerateDeityImage(dayKey) {
 
         if (response?.generatedImages?.[0]?.image?.imageBytes) {
           const imageBytesBase64 = response.generatedImages[0].image.imageBytes;
-          const filename = `gen_${dayConfig.id}_${Date.now()}.jpg`;
+          const timestampStr = getFormattedDateTimeStamp();
+          const filename = `gen_${dayConfig.id}_${timestampStr}.jpg`;
           const filepath = path.join(config.imagesDir, filename);
 
           fs.writeFileSync(filepath, Buffer.from(imageBytesBase64, 'base64'));
-          logger.info(`Generated new deity portrait via Imagen: ${filename}`);
+          logger.info(`Generated new deity portrait via Imagen with timestamp: ${filename}`);
 
           return {
             filename,
             filepath,
             url: `/images/${filename}`,
-            isGenerated: true
+            isGenerated: true,
+            createdAt: new Date().toISOString()
           };
         }
       }

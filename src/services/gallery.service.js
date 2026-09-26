@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { config } from '../config/index.js';
 import { DAY_DEITY_MAPPING, DAYS_ORDER } from '../constants/deities.js';
+import { formatDisplayDateTime } from '../utils/date.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -57,6 +58,15 @@ export class GalleryService {
       const day = detectedDay || 'monday';
       const dayConfig = DAY_DEITY_MAPPING[day];
 
+      const fullPath = path.join(imagesDir, filename);
+      let fileStat = null;
+      try {
+        fileStat = fs.statSync(fullPath);
+      } catch (_) {}
+
+      const fileTimestamp = fileStat ? fileStat.mtime : new Date();
+      const formattedDate = formatDisplayDateTime(fileTimestamp);
+
       items.push({
         id: Buffer.from(filename).toString('hex').slice(0, 12),
         filename,
@@ -71,6 +81,9 @@ export class GalleryService {
         theme: dayConfig.theme,
         colors: dayConfig.colors,
         isDefault: day === 'monday',
+        isGenerated: filename.startsWith('gen_'),
+        createdAt: fileTimestamp.toISOString(),
+        formattedDate,
         sampleBlessing: dayConfig.sampleBlessings[0]
       });
     }

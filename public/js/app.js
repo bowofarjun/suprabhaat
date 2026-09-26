@@ -155,6 +155,7 @@ function renderGallery() {
             <img src="${item.url}" alt="${item.deity}" class="card-img" loading="lazy">
             <span class="card-overlay-badge">${item.dayName} • ${item.greetingEnglish}</span>
             <span class="card-overlay-hindi">${item.greetingHindi}</span>
+            <span class="card-overlay-timestamp">🕒 ${item.formattedDate || 'Curated Asset'}</span>
           </div>
 
           <div class="card-body">
