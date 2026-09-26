@@ -742,6 +742,36 @@ body {
   color: var(--text-muted);
 }
 
+.preview-thumb-strip {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding: 0.35rem 0.15rem;
+}
+
+.thumb-strip-item {
+  width: 50px;
+  height: 66px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0.65;
+}
+
+.thumb-strip-item:hover {
+  opacity: 0.95;
+  transform: translateY(-2px);
+}
+
+.thumb-strip-item.active {
+  border-color: var(--primary);
+  opacity: 1;
+  box-shadow: 0 0 10px rgba(79, 70, 229, 0.45);
+  transform: scale(1.04);
+}
+
 .checkbox-row {
   display: flex;
   flex-direction: column;

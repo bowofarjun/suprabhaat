@@ -301,6 +301,23 @@ function getDefaultBlessingForDay(dayId) {
   return curatedBlessings[dayId] || curatedBlessings.monday;
 }
 
+let currentModalDayImages = [];
+
+function selectModalImage(imageId) {
+  const found = currentModalDayImages.find((img) => img.id === imageId);
+  if (found) {
+    selectedModalImage = found;
+    const dayConfig = allDaysList.find((d) => d.id === found.day) || allDaysList[0];
+    updateModalArtworkCard(selectedModalImage, dayConfig, currentModalDayImages);
+
+    // Also update sample blessing if user hasn't typed a custom one
+    const textarea = document.getElementById('modalBlessingText');
+    if (textarea && found.sampleBlessing) {
+      textarea.value = found.sampleBlessing;
+    }
+  }
+}
+
 function openDispatchModal(dayOverride) {
   const modal = document.getElementById('dispatchModal');
   modal.classList.remove('hidden');
@@ -332,11 +349,8 @@ function openDispatchModalWithItem(imageId) {
   const modal = document.getElementById('dispatchModal');
   modal.classList.remove('hidden');
 
-  selectedModalImage = item;
   const select = document.getElementById('modalDaySelect');
   if (select) select.value = item.day;
-
-  updateModalArtworkCard(item);
 
   // Immediately populate the blessing tailored specifically to this day & deity
   const textarea = document.getElementById('modalBlessingText');
@@ -344,8 +358,7 @@ function openDispatchModalWithItem(imageId) {
     textarea.value = item.sampleBlessing || getDefaultBlessingForDay(item.day);
   }
 
-  // Request fresh AI blessing tailored to this day & deity
-  regenerateAiBlessing(item.day);
+  handleModalDayChange(item.day, item.id);
 }
 
 function closeDispatchModal() {
@@ -353,47 +366,79 @@ function closeDispatchModal() {
   document.getElementById('dispatchResultArea').classList.add('hidden');
 }
 
-async function handleModalDayChange(dayId) {
+async function handleModalDayChange(dayId, preferredImageId) {
   const dayConfig = allDaysList.find((d) => d.id === dayId) || allDaysList[0];
 
   // Immediately display the authentic traditional blessing for this selected day & deity
   const textarea = document.getElementById('modalBlessingText');
-  if (textarea) {
+  if (textarea && !textarea.value) {
     textarea.value = getDefaultBlessingForDay(dayId);
   }
 
-  // Pick matching image for this day
-  const matchingImages = currentImages.filter((img) => img.day === dayId);
-  if (matchingImages.length > 0) {
-    selectedModalImage = matchingImages[0];
-  } else {
-    try {
-      const res = await fetch(`/api/images?day=${dayId}`);
-      const data = await res.json();
-      selectedModalImage = data.images?.[0] || null;
-    } catch (_) {
-      selectedModalImage = null;
-    }
+  // Fetch images for this day to retrieve all available versions
+  try {
+    const res = await fetch(`/api/images?day=${dayId}`);
+    const data = await res.json();
+    currentModalDayImages = data.images || [];
+  } catch (_) {
+    currentModalDayImages = currentImages.filter((img) => img.day === dayId);
   }
 
-  updateModalArtworkCard(selectedModalImage, dayConfig);
+  // Pick preferred image if specified, otherwise default to freshest/newest image (index 0)
+  if (preferredImageId) {
+    selectedModalImage = currentModalDayImages.find((img) => img.id === preferredImageId) || currentModalDayImages[0] || null;
+  } else {
+    selectedModalImage = currentModalDayImages[0] || null;
+  }
+
+  updateModalArtworkCard(selectedModalImage, dayConfig, currentModalDayImages);
 
   // Fetch AI blessing preview tailored specifically to this day
   await regenerateAiBlessing(dayId);
 }
 
-function updateModalArtworkCard(item, dayConfig) {
+function updateModalArtworkCard(item, dayConfig, allDayImages = []) {
   const preview = document.getElementById('modalArtworkPreview');
   if (!preview) return;
 
-  if (item) {
-    preview.innerHTML = `
-      <img src="${item.url}" alt="${item.deity}" class="preview-thumb">
-      <div class="preview-info">
-        <div class="preview-deity">${item.deity}</div>
-        <div class="preview-meta">${item.dayName} • ${item.greetingHindi} (${item.greetingEnglish})</div>
-        <div class="preview-meta" style="font-size: 0.72rem; color: #9ca3af;">File: ${item.filename}</div>
+  const hasMultiple = allDayImages && allDayImages.length > 1;
+
+  let stripHtml = '';
+  if (hasMultiple) {
+    stripHtml = `
+      <div style="margin-top: 0.65rem; border-top: 1px dashed #e5e7eb; padding-top: 0.5rem; width: 100%;">
+        <div style="font-size: 0.74rem; font-weight: 600; color: #4b5563; margin-bottom: 0.35rem; display: flex; justify-content: space-between;">
+          <span>Artwork Versions (${allDayImages.length} available - click to select):</span>
+          <span style="font-size: 0.7rem; color: #166534;">* Defaults to Latest</span>
+        </div>
+        <div class="preview-thumb-strip">
+          ${allDayImages.map((img, idx) => `
+            <img src="${img.url}" 
+                 alt="${img.deity}" 
+                 class="thumb-strip-item ${img.id === item?.id ? 'active' : ''}" 
+                 onclick="selectModalImage('${img.id}')"
+                 title="${idx === 0 ? 'Latest: ' : 'Version: '}${img.formattedDate || img.filename}">
+          `).join('')}
+        </div>
       </div>
+    `;
+  }
+
+  if (item) {
+    const isFreshest = allDayImages[0]?.id === item.id;
+    preview.innerHTML = `
+      <div style="display: flex; gap: 1rem; align-items: center; width: 100%;">
+        <img src="${item.url}" alt="${item.deity}" class="preview-thumb">
+        <div class="preview-info">
+          <div class="preview-deity">
+            ${item.deity} 
+            ${isFreshest ? '<span style="font-size: 0.68rem; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: 600;">Latest</span>' : ''}
+          </div>
+          <div class="preview-meta">${item.dayName} • ${item.greetingHindi} (${item.greetingEnglish})</div>
+          <div class="preview-meta" style="font-size: 0.72rem; color: #9ca3af;">🕒 ${item.formattedDate || 'Curated Asset'}</div>
+        </div>
+      </div>
+      ${stripHtml}
     `;
   } else if (dayConfig) {
     preview.innerHTML = `
