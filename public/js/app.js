@@ -223,7 +223,14 @@ function updateWhatsAppBadge(wa) {
         <div style="padding: 1.5rem; color: #166534; text-align: center;">
           <div style="font-size: 3rem; margin-bottom: 0.5rem;">✅</div>
           <h3 style="margin-bottom: 0.25rem;">WhatsApp Web Connected!</h3>
-          <p style="color: #15803d; font-size: 0.9rem;">Session active (${wa.user || 'Active User'}). Morning blessings will be dispatched automatically.</p>
+          <p style="color: #15803d; font-size: 0.9rem;">
+            Session active as <strong>${wa.user || 'Active User'}</strong>. Morning blessings will be dispatched automatically.
+          </p>
+          <div style="margin-top: 1.25rem; border-top: 1px solid #dcfce7; padding-top: 1rem;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="triggerWhatsAppLogout()">
+              🚪 Unlink / Switch Phone Number
+            </button>
+          </div>
         </div>
       `;
     }
@@ -262,15 +269,32 @@ function updateWhatsAppBadge(wa) {
       qrContainer.innerHTML = `
         <img src="${wa.qrCodeDataUrl}" alt="WhatsApp QR Code" class="qr-image">
         <p style="margin-top: 0.75rem; font-size: 0.8rem; color: #6b7280;">QR code refreshes automatically</p>
+        <div style="margin-top: 0.75rem;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="triggerWhatsAppRestart(false)">
+            🔄 Reload QR Code
+          </button>
+        </div>
       `;
     }
   } else {
     badge.classList.add('status-disconnected');
     text.textContent = `WhatsApp: ${wa?.status || 'Offline'}`;
     if (qrContainer) {
-      qrContainer.innerHTML = `
-        <div class="spiritual-spinner"></div>
-        <p>Initializing WhatsApp client...</p>
+      qrContainer.innerHTML = wa?.status === 'INITIALIZING' ? `
+        <div class="spiritual-spinner" style="margin: 0 auto;"></div>
+        <p style="margin-top: 0.75rem; font-weight: 600; color: #4b5563;">Launching WhatsApp Web in container...</p>
+        <p style="font-size: 0.8rem; color: #6b7280; margin-top: 0.25rem;">Chromium is starting. QR code will appear in seconds.</p>
+      ` : `
+        <div style="padding: 1.5rem; text-align: center;">
+          <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">⚠️</div>
+          <h3 style="color: #b91c1c; margin-bottom: 0.25rem;">WhatsApp Disconnected</h3>
+          <p style="font-size: 0.85rem; color: #6b7280; margin-bottom: 1rem;">
+            ${wa?.initError || 'Session is not active or has expired on your phone. Click below to reconnect and scan a fresh QR code.'}
+          </p>
+          <button type="button" class="btn btn-primary" onclick="triggerWhatsAppRestart(true)">
+            🔄 Reconnect & Generate New QR
+          </button>
+        </div>
       `;
     }
   }
@@ -281,6 +305,62 @@ function updateWhatsAppBadge(wa) {
     waRecSummary.textContent = `(${wa.configuredRecipientsCount} recipients)`;
   }
 }
+
+/**
+ * Triggers WhatsApp service restart (with optional session purge)
+ */
+async function triggerWhatsAppRestart(purge = false) {
+  const qrContainer = document.getElementById('waQrContainer');
+  if (qrContainer) {
+    qrContainer.innerHTML = `
+      <div class="spiritual-spinner" style="margin: 0 auto;"></div>
+      <p style="margin-top: 0.75rem; color: #b45309; font-weight: 600;">
+        ${purge ? 'Purging session and regenerating fresh QR code...' : 'Restarting WhatsApp client...'}
+      </p>
+    `;
+  }
+
+  try {
+    const res = await fetch('/api/whatsapp/restart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purgeSession: purge })
+    });
+    const data = await res.json();
+    console.log('[WhatsApp]', data.message);
+    setTimeout(fetchSystemStatus, 1500);
+  } catch (err) {
+    console.error('Error restarting WhatsApp:', err);
+  }
+}
+
+/**
+ * Unlinks WhatsApp session and generates fresh QR
+ */
+async function triggerWhatsAppLogout() {
+  const confirmed = confirm('Are you sure you want to unlink WhatsApp? This will remove the active session and generate a fresh QR code.');
+  if (!confirmed) return;
+
+  const qrContainer = document.getElementById('waQrContainer');
+  if (qrContainer) {
+    qrContainer.innerHTML = `
+      <div class="spiritual-spinner" style="margin: 0 auto;"></div>
+      <p style="margin-top: 0.75rem; color: #b45309; font-weight: 600;">Unlinking WhatsApp session and generating new QR...</p>
+    `;
+  }
+
+  try {
+    const res = await fetch('/api/whatsapp/logout', { method: 'POST' });
+    const data = await res.json();
+    console.log('[WhatsApp]', data.message);
+    setTimeout(fetchSystemStatus, 1500);
+  } catch (err) {
+    console.error('Error logging out WhatsApp:', err);
+  }
+}
+
+window.triggerWhatsAppRestart = triggerWhatsAppRestart;
+window.triggerWhatsAppLogout = triggerWhatsAppLogout;
 
 /**
  * Updates scheduler time display

@@ -7,6 +7,7 @@ import { schedulerService } from '../services/scheduler.service.js';
 import { DispatchService } from '../services/dispatch.service.js';
 import { generateDevotionalBlessing } from '../services/ai.service.js';
 import { config } from '../config/index.js';
+import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -160,6 +161,48 @@ router.get('/history', (req, res) => {
     count: DispatchService.getHistory().length,
     history: DispatchService.getHistory()
   });
+});
+
+/**
+ * POST /api/whatsapp/restart
+ * Triggers a controlled restart of the WhatsApp client.
+ * Body options: { purgeSession: true|false }
+ */
+router.post('/whatsapp/restart', async (req, res) => {
+  try {
+    const { purgeSession = false } = req.body || {};
+    whatsAppService.restart(purgeSession).catch((err) => {
+      logger.error(`Async error during WhatsApp restart: ${err.message}`);
+    });
+
+    res.json({
+      success: true,
+      message: purgeSession
+        ? 'Purging WhatsApp session and restarting client for fresh QR code...'
+        : 'Restarting WhatsApp client. Check status for fresh QR code...'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/whatsapp/logout
+ * Unlinks the device, purges stored credentials, and generates a fresh QR code.
+ */
+router.post('/whatsapp/logout', async (req, res) => {
+  try {
+    whatsAppService.logout().catch((err) => {
+      logger.error(`Async error during WhatsApp logout: ${err.message}`);
+    });
+
+    res.json({
+      success: true,
+      message: 'Unlinking WhatsApp session. A fresh QR code will be generated shortly.'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 export const apiRoutes = router;

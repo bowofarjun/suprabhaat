@@ -42,6 +42,27 @@ export function cleanupChromiumLocks(dirPath) {
   }
 }
 
+/**
+ * Purges the saved session folder inside dataPath.
+ * Called when a session is invalidated (auth_failure), user logs out from phone, or manual logout.
+ */
+export function purgeAuthSession(authPath) {
+  if (!fs.existsSync(authPath)) return;
+  try {
+    const sessionDir = path.join(authPath, 'session');
+    if (fs.existsSync(sessionDir)) {
+      try {
+        fs.rmSync(sessionDir, { recursive: true, force: true });
+        logger.info(`Purged revoked/stale WhatsApp session directory: ${sessionDir}`);
+      } catch (err) {
+        logger.warn(`Could not purge session dir ${sessionDir}: ${err.message}`);
+      }
+    }
+  } catch (err) {
+    logger.warn(`Error scanning authPath for session purge in ${authPath}: ${err.message}`);
+  }
+}
+
 class WhatsAppService {
   constructor() {
     this.client = null;
@@ -54,6 +75,28 @@ class WhatsAppService {
     this.loadingPercent = null;
     this.loadingMessage = null;
     this.watchdogInterval = null;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+    this.reconnectTimer = null;
+  }
+
+  /**
+   * Resets connection state fields and cleans up active timers.
+   */
+  resetState(newStatus = 'DISCONNECTED', error = null) {
+    this.status = newStatus;
+    this.authenticatedUser = null;
+    this.readyTimestamp = null;
+    this.qrCodeDataUrl = null;
+    this.qrCodeRaw = null;
+    this.loadingPercent = null;
+    this.loadingMessage = null;
+    this.initError = error;
+    this.stopWatchdog();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
   }
 
   /**
@@ -61,11 +104,13 @@ class WhatsAppService {
    */
   setConnected(user = null) {
     this.status = 'CONNECTED';
+    this.reconnectAttempts = 0;
     this.readyTimestamp = this.readyTimestamp || new Date().toISOString();
     this.qrCodeDataUrl = null;
     this.qrCodeRaw = null;
     this.loadingPercent = 100;
     this.loadingMessage = 'Ready';
+    this.initError = null;
     this.stopWatchdog();
 
     if (user) {
@@ -155,6 +200,58 @@ class WhatsAppService {
   }
 
   /**
+   * Safely shuts down current client instance and cleans lock files.
+   */
+  async destroyClient() {
+    this.stopWatchdog();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.client) {
+      try {
+        await this.client.destroy();
+      } catch (err) {
+        logger.debug(`Client destroy notice: ${err.message}`);
+      }
+      this.client = null;
+    }
+    cleanupChromiumLocks(config.whatsappAuthPath);
+  }
+
+  /**
+   * Restarts the WhatsApp client. If purgeSession is true, purges stale credentials.
+   */
+  async restart(purgeSession = false) {
+    logger.info(`Restarting WhatsApp Client (purgeSession: ${purgeSession})...`);
+    this.resetState('INITIALIZING');
+
+    await this.destroyClient();
+
+    if (purgeSession) {
+      purgeAuthSession(config.whatsappAuthPath);
+    }
+
+    // Brief cooling pause to release locks
+    await new Promise((res) => setTimeout(res, 1500));
+
+    return this.initialize();
+  }
+
+  /**
+   * Unlinks WhatsApp account, clears credentials, and restarts into QR generation mode.
+   */
+  async logout() {
+    logger.info('User requested WhatsApp logout / account unlink.');
+    try {
+      if (this.client && this.status === 'CONNECTED') {
+        await this.client.logout().catch(() => {});
+      }
+    } catch (_) {}
+    return this.restart(true);
+  }
+
+  /**
    * Initializes the WhatsApp Web client with LocalAuth and resilient event listeners.
    */
   async initialize() {
@@ -163,6 +260,7 @@ class WhatsAppService {
     }
 
     this.status = 'INITIALIZING';
+    this.initError = null;
     
     // Ensure whatsapp-web.js media patch is applied
     try {
@@ -176,6 +274,13 @@ class WhatsAppService {
       cleanupChromiumLocks(config.whatsappAuthPath);
     } catch (cleanupErr) {
       logger.warn(`Could not clean Chromium locks: ${cleanupErr.message}`);
+    }
+
+    const sessionExists = fs.existsSync(path.join(config.whatsappAuthPath, 'session'));
+    if (!sessionExists) {
+      logger.info('First-time WhatsApp startup detected (no saved session). A fresh QR code will be generated.');
+    } else {
+      logger.info('Saved WhatsApp session detected in storage. Attempting to restore session...');
     }
 
     logger.info(`Initializing WhatsApp Client with auth path: ${config.whatsappAuthPath}`);
@@ -215,7 +320,8 @@ class WhatsAppService {
         this.qrCodeRaw = qr;
         this.loadingPercent = null;
         this.loadingMessage = null;
-        logger.info('WhatsApp QR Code generated. Scan to authenticate:');
+        this.initError = null;
+        logger.info('WhatsApp QR Code generated. Scan with mobile phone to authenticate:');
         qrcodeTerminal.generate(qr, { small: true });
 
         try {
@@ -257,32 +363,57 @@ class WhatsAppService {
         this.setConnected(this.client.info?.wid?.user);
       });
 
-      this.client.on('auth_failure', (msg) => {
-        this.status = 'DISCONNECTED';
-        this.initError = msg;
-        this.stopWatchdog();
-        logger.error(`WhatsApp authentication failure: ${msg}`);
+      this.client.on('auth_failure', async (msg) => {
+        logger.error(`WhatsApp authentication failure: ${msg}. Stored session has expired or was revoked.`);
+        this.resetState('DISCONNECTED', `Authentication failed: ${msg}`);
+
+        // Purge dead session files and automatically recover after 3s backoff
+        logger.info('Auto-recovering: purging stale session and scheduling fresh QR generation in 3s...');
+        this.reconnectTimer = setTimeout(() => {
+          this.restart(true).catch((err) => {
+            logger.error(`Error during WhatsApp auto-recovery: ${err.message}`);
+          });
+        }, 3000);
       });
 
-      this.client.on('disconnected', (reason) => {
-        this.status = 'DISCONNECTED';
-        this.qrCodeDataUrl = null;
-        this.qrCodeRaw = null;
-        this.stopWatchdog();
+      this.client.on('disconnected', async (reason) => {
         logger.warn(`WhatsApp Client disconnected. Reason: ${reason}`);
+        this.stopWatchdog();
+
+        if (reason === 'LOGOUT') {
+          logger.info('Device unlinked from mobile phone. Purging session and generating fresh QR code in 2s...');
+          this.resetState('DISCONNECTED', 'Session logged out from device');
+          this.reconnectTimer = setTimeout(() => {
+            this.restart(true).catch((err) => {
+              logger.error(`Error restarting after logout: ${err.message}`);
+            });
+          }, 2000);
+        } else {
+          // Transient network disconnection
+          this.resetState('DISCONNECTED', `Disconnected: ${reason}`);
+
+          if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            const delay = Math.min(3000 * Math.pow(1.5, this.reconnectAttempts), 20000);
+            logger.info(`Scheduling reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${Math.round(delay / 1000)}s...`);
+            this.reconnectTimer = setTimeout(() => {
+              this.restart(false).catch((err) => {
+                logger.error(`Reconnection attempt failed: ${err.message}`);
+              });
+            }, delay);
+          } else {
+            logger.warn(`Max reconnection attempts (${this.maxReconnectAttempts}) reached. Awaiting manual trigger or next check.`);
+          }
+        }
       });
 
       // Launch client
       this.client.initialize().catch((err) => {
-        this.status = 'DISCONNECTED';
-        this.initError = err.message;
-        this.stopWatchdog();
+        this.resetState('DISCONNECTED', err.message);
         logger.error(`Failed to launch WhatsApp client: ${err.message}`);
       });
     } catch (err) {
-      this.status = 'DISCONNECTED';
-      this.initError = err.message;
-      this.stopWatchdog();
+      this.resetState('DISCONNECTED', err.message);
       logger.error(`Exception initializing WhatsApp client: ${err.message}`);
     }
   }
@@ -291,6 +422,7 @@ class WhatsAppService {
    * Returns current WhatsApp connection status for API/UI.
    */
   getStatus() {
+    const sessionExists = fs.existsSync(path.join(config.whatsappAuthPath, 'session'));
     return {
       status: this.status,
       connected: this.status === 'CONNECTED',
@@ -300,6 +432,9 @@ class WhatsAppService {
       qrCodeDataUrl: this.qrCodeDataUrl,
       loadingPercent: this.loadingPercent,
       loadingMessage: this.loadingMessage,
+      initError: this.initError,
+      hasSavedSession: sessionExists,
+      reconnectAttempts: this.reconnectAttempts,
       configuredRecipientsCount: config.recipientNumbers.length,
       configuredRecipients: config.recipientNumbers
     };

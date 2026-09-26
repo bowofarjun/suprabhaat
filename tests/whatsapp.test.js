@@ -108,4 +108,54 @@ test('WhatsAppService setConnected transitions state to CONNECTED and resets QR 
   assert.strictEqual(status.user, '917905223180');
 });
 
+test('purgeAuthSession cleanly deletes stale session directory while preserving root auth folder', async () => {
+  const { purgeAuthSession } = await import('../src/services/whatsapp.service.js');
+  const fs = await import('fs');
+  const tempAuthDir = path.join(config.projectRoot, 'storage', 'test-auth-purge');
+  const sessionSubDir = path.join(tempAuthDir, 'session');
+
+  fs.mkdirSync(sessionSubDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionSubDir, 'Default_Cookies'), 'fake-cookie');
+  fs.writeFileSync(path.join(tempAuthDir, 'other_meta.json'), '{"meta": true}');
+
+  assert.ok(fs.existsSync(sessionSubDir));
+
+  purgeAuthSession(tempAuthDir);
+
+  assert.strictEqual(fs.existsSync(sessionSubDir), false, 'session directory should be deleted');
+  assert.ok(fs.existsSync(tempAuthDir), 'parent auth directory should remain intact');
+  assert.ok(fs.existsSync(path.join(tempAuthDir, 'other_meta.json')), 'non-session files should be preserved');
+
+  // Clean up
+  fs.rmSync(tempAuthDir, { recursive: true, force: true });
+});
+
+test('WhatsAppService resetState cleanly clears user, timestamps, qr, and loading metrics', () => {
+  whatsAppService.status = 'CONNECTED';
+  whatsAppService.authenticatedUser = '917905223180';
+  whatsAppService.readyTimestamp = new Date().toISOString();
+  whatsAppService.qrCodeDataUrl = 'data:image/png;base64,sample';
+  whatsAppService.qrCodeRaw = 'sample-qr';
+  whatsAppService.loadingPercent = 80;
+  whatsAppService.loadingMessage = 'Syncing chats';
+  whatsAppService.initError = null;
+
+  whatsAppService.resetState('DISCONNECTED', 'Session logged out');
+
+  assert.strictEqual(whatsAppService.status, 'DISCONNECTED');
+  assert.strictEqual(whatsAppService.authenticatedUser, null);
+  assert.strictEqual(whatsAppService.readyTimestamp, null);
+  assert.strictEqual(whatsAppService.qrCodeDataUrl, null);
+  assert.strictEqual(whatsAppService.qrCodeRaw, null);
+  assert.strictEqual(whatsAppService.loadingPercent, null);
+  assert.strictEqual(whatsAppService.loadingMessage, null);
+  assert.strictEqual(whatsAppService.initError, 'Session logged out');
+
+  const status = whatsAppService.getStatus();
+  assert.strictEqual(status.connected, false);
+  assert.strictEqual(status.user, null);
+  assert.strictEqual(status.initError, 'Session logged out');
+});
+
+
 

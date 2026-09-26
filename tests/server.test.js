@@ -31,6 +31,36 @@ test('SuPrabhaat Express server boots, serves health probes, API, and Monday def
     });
   };
 
+  // Helper to POST JSON to test server
+  const postJson = (endpoint, payload = {}) => {
+    return new Promise((resolve, reject) => {
+      const postData = JSON.stringify(payload);
+      const req = http.request({
+        hostname: '127.0.0.1',
+        port,
+        path: endpoint,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          try {
+            resolve({ status: res.statusCode, body: JSON.parse(data) });
+          } catch (e) {
+            resolve({ status: res.statusCode, raw: data });
+          }
+        });
+      });
+      req.on('error', reject);
+      req.write(postData);
+      req.end();
+    });
+  };
+
   try {
     // 1. Verify /health/liveness
     const liveRes = await fetchJson('/health/liveness');
@@ -65,6 +95,18 @@ test('SuPrabhaat Express server boots, serves health probes, API, and Monday def
     const statusRes = await fetchJson('/api/status');
     assert.strictEqual(statusRes.status, 200);
     assert.strictEqual(statusRes.body.defaultDay, 'monday');
+
+    // 7. Verify /api/whatsapp/restart endpoint
+    const restartRes = await postJson('/api/whatsapp/restart', { purgeSession: false });
+    assert.strictEqual(restartRes.status, 200);
+    assert.strictEqual(restartRes.body.success, true);
+    assert.ok(restartRes.body.message.includes('Restarting'));
+
+    // 8. Verify /api/whatsapp/logout endpoint
+    const logoutRes = await postJson('/api/whatsapp/logout');
+    assert.strictEqual(logoutRes.status, 200);
+    assert.strictEqual(logoutRes.body.success, true);
+    assert.ok(logoutRes.body.message.includes('Unlinking'));
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
