@@ -27,6 +27,7 @@ router.get('/days', (req, res) => {
       deityHindi: item.deityHindi,
       theme: item.theme,
       colors: item.colors,
+      sampleBlessings: item.sampleBlessings,
       isDefault: item.id === 'monday'
     };
   });

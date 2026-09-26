@@ -266,11 +266,46 @@ function populateModalDaySelect() {
     .join('');
 }
 
-function openDispatchModal() {
+let currentBlessingRequestId = 0;
+
+/**
+ * Returns the traditional default devotional blessing matching the specific day & deity
+ */
+function getDefaultBlessingForDay(dayId) {
+  const day = allDaysList.find((d) => d.id === dayId);
+  if (day?.sampleBlessings && day.sampleBlessings.length > 0) {
+    return day.sampleBlessings[0];
+  }
+
+  // Cultural Vedic fallback dictionary per day & deity
+  const curatedBlessings = {
+    monday: 'May the divine grace of Mahadev bring profound peace and serenity to your soul.\nWishing you a calm, purposeful, and blessed Monday! 🌸🕉️',
+    tuesday: 'May Sankat Mochan Hanuman ji bless you with boundless courage and protect you from all harm.\nWishing you a vibrant, triumphant, and energetic Tuesday! 🚩🙏',
+    wednesday: 'May Vighnaharta Lord Ganesha remove every obstacle and illuminate your mind with divine intellect.\nWishing you a prosperous, creative, and joyful Wednesday! 🐘🌸',
+    thursday: 'May the gentle music of Shri Krishna’s flute inspire peace, virtue, and compassion in your life.\nWishing you a spiritually uplifting and tranquil Thursday! 🦚🌸',
+    friday: 'May Devi Mahalakshmi shower your home with everlasting prosperity, radiant health, and contentment.\nWishing you a joyful, abundant, and blessed Friday! 🪷💰',
+    saturday: 'May Lord Shani Dev reward your righteous deeds, steady your patience, and guide your moral journey.\nWishing you a disciplined, balanced, and peaceful Saturday! ⚖️🙏',
+    sunday: 'May the golden rays of Surya Bhagwan dispel all shadows and infuse your day with vitality and light.\nWishing you an invigorating, healthy, and luminous Sunday! ☀️🌸'
+  };
+
+  return curatedBlessings[dayId] || curatedBlessings.monday;
+}
+
+function openDispatchModal(dayOverride) {
   const modal = document.getElementById('dispatchModal');
   modal.classList.remove('hidden');
 
-  const selectedDay = currentFilterDay === 'all' ? 'monday' : currentFilterDay;
+  let selectedDay = dayOverride;
+  if (!selectedDay) {
+    if (currentFilterDay && currentFilterDay !== 'all') {
+      selectedDay = currentFilterDay;
+    } else {
+      const todayIndex = new Date().getDay();
+      const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      selectedDay = daysOfWeek[todayIndex] || 'monday';
+    }
+  }
+
   const select = document.getElementById('modalDaySelect');
   if (select) select.value = selectedDay;
 
@@ -278,15 +313,29 @@ function openDispatchModal() {
 }
 
 function openDispatchModalWithItem(imageId) {
-  openDispatchModal();
   const item = currentImages.find((img) => img.id === imageId);
-  if (item) {
-    selectedModalImage = item;
-    const select = document.getElementById('modalDaySelect');
-    if (select) select.value = item.day;
-    updateModalArtworkCard(item);
-    document.getElementById('modalBlessingText').value = item.sampleBlessing || '';
+  if (!item) {
+    openDispatchModal();
+    return;
   }
+
+  const modal = document.getElementById('dispatchModal');
+  modal.classList.remove('hidden');
+
+  selectedModalImage = item;
+  const select = document.getElementById('modalDaySelect');
+  if (select) select.value = item.day;
+
+  updateModalArtworkCard(item);
+
+  // Immediately populate the blessing tailored specifically to this day & deity
+  const textarea = document.getElementById('modalBlessingText');
+  if (textarea) {
+    textarea.value = item.sampleBlessing || getDefaultBlessingForDay(item.day);
+  }
+
+  // Request fresh AI blessing tailored to this day & deity
+  regenerateAiBlessing(item.day);
 }
 
 function closeDispatchModal() {
@@ -297,20 +346,29 @@ function closeDispatchModal() {
 async function handleModalDayChange(dayId) {
   const dayConfig = allDaysList.find((d) => d.id === dayId) || allDaysList[0];
 
-  // Pick default image for this day
+  // Immediately display the authentic traditional blessing for this selected day & deity
+  const textarea = document.getElementById('modalBlessingText');
+  if (textarea) {
+    textarea.value = getDefaultBlessingForDay(dayId);
+  }
+
+  // Pick matching image for this day
   const matchingImages = currentImages.filter((img) => img.day === dayId);
   if (matchingImages.length > 0) {
     selectedModalImage = matchingImages[0];
   } else {
-    // Fetch image for this day
-    const res = await fetch(`/api/images?day=${dayId}`);
-    const data = await res.json();
-    selectedModalImage = data.images?.[0] || null;
+    try {
+      const res = await fetch(`/api/images?day=${dayId}`);
+      const data = await res.json();
+      selectedModalImage = data.images?.[0] || null;
+    } catch (_) {
+      selectedModalImage = null;
+    }
   }
 
   updateModalArtworkCard(selectedModalImage, dayConfig);
 
-  // Fetch AI blessing preview
+  // Fetch AI blessing preview tailored specifically to this day
   await regenerateAiBlessing(dayId);
 }
 
@@ -331,7 +389,7 @@ function updateModalArtworkCard(item, dayConfig) {
     preview.innerHTML = `
       <div class="preview-info">
         <div class="preview-deity">${dayConfig.deity}</div>
-        <div class="preview-meta">${dayConfig.name} • ${dayConfig.greetingHindi}</div>
+        <div class="preview-meta">${dayConfig.name} • ${dayConfig.greetingHindi} (${dayConfig.greetingEnglish})</div>
       </div>
     `;
   }
@@ -345,7 +403,10 @@ async function regenerateAiBlessing(dayIdOverride) {
   const dayId = dayIdOverride || select?.value || 'monday';
   const textarea = document.getElementById('modalBlessingText');
 
-  textarea.value = 'Connecting to Gemini AI for a sacred morning blessing...';
+  currentBlessingRequestId += 1;
+  const thisRequestId = currentBlessingRequestId;
+
+  textarea.value = `Invoking divine blessings for ${dayId.toUpperCase()} with Gemini AI...`;
 
   try {
     const res = await fetch('/api/blessing/preview', {
@@ -354,14 +415,19 @@ async function regenerateAiBlessing(dayIdOverride) {
       body: JSON.stringify({ day: dayId })
     });
     const data = await res.json();
+
+    // Prevent race conditions if the user switched day while waiting
+    if (thisRequestId !== currentBlessingRequestId) return;
+
     if (data.success && data.blessing) {
       textarea.value = data.blessing;
     } else {
-      textarea.value = 'May divine light bless your morning with joy, health, and peace.\nWishing you an auspicious day! 🌸🙏';
+      textarea.value = getDefaultBlessingForDay(dayId);
     }
   } catch (err) {
-    console.error('Error generating AI blessing:', err);
-    textarea.value = 'May Lord Shiva bless you with peace, tranquility, and divine grace.\nWishing you an auspicious Shubh Somvaar! 🌸🕉️';
+    if (thisRequestId !== currentBlessingRequestId) return;
+    console.warn(`Error generating AI blessing for ${dayId}:`, err);
+    textarea.value = getDefaultBlessingForDay(dayId);
   }
 }
 
