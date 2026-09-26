@@ -51,10 +51,111 @@ class WhatsAppService {
     this.authenticatedUser = null;
     this.readyTimestamp = null;
     this.initError = null;
+    this.loadingPercent = null;
+    this.loadingMessage = null;
+    this.watchdogInterval = null;
   }
 
   /**
-   * Initializes the WhatsApp Web client with LocalAuth.
+   * Transitions client state to CONNECTED and records timestamp & user info.
+   */
+  setConnected(user = null) {
+    this.status = 'CONNECTED';
+    this.readyTimestamp = this.readyTimestamp || new Date().toISOString();
+    this.qrCodeDataUrl = null;
+    this.qrCodeRaw = null;
+    this.loadingPercent = 100;
+    this.loadingMessage = 'Ready';
+    this.stopWatchdog();
+
+    if (user) {
+      this.authenticatedUser = user;
+    } else if (this.client?.info?.wid?.user) {
+      this.authenticatedUser = this.client.info.wid.user;
+    } else if (!this.authenticatedUser) {
+      this.authenticatedUser = 'Active User';
+    }
+
+    logger.info(`WhatsApp Client is READY! Connected as: ${this.authenticatedUser}`);
+  }
+
+  /**
+   * Starts a proactive polling watchdog once authentication begins.
+   * If the ready event is delayed by offline chat sync or injection timing,
+   * this verifies client.getState() and client page state to transition to CONNECTED.
+   */
+  startWatchdog() {
+    if (this.watchdogInterval) return;
+    logger.info('Started WhatsApp connection watchdog (polling for session readiness)...');
+
+    let checks = 0;
+    this.watchdogInterval = setInterval(async () => {
+      checks++;
+      if (this.status === 'CONNECTED') {
+        this.stopWatchdog();
+        return;
+      }
+
+      if (!this.client) {
+        this.stopWatchdog();
+        return;
+      }
+
+      try {
+        const state = await this.client.getState().catch(() => null);
+        if (state) {
+          logger.debug(`[Watchdog #${checks}] WhatsApp state: ${state}`);
+        }
+
+        if (state === 'CONNECTED') {
+          logger.info(`[Watchdog] Client confirmed CONNECTED state on check #${checks}! Finalizing readiness...`);
+          this.setConnected();
+          return;
+        }
+
+        // Proactively inspect browser page if ready event has not emitted yet
+        if (this.client.pupPage && !this.authenticatedUser) {
+          try {
+            const userWid = await this.client.pupPage.evaluate(() => {
+              try {
+                const u = window.require?.('WAWebUserPrefsMeUser')?.getMaybeMePnUser?.() ||
+                          window.require?.('WAWebUserPrefsMeUser')?.getMaybeMeLidUser?.();
+                return u?.user || u?._serialized || null;
+              } catch (_) {
+                return null;
+              }
+            });
+
+            if (userWid) {
+              logger.info(`[Watchdog] Detected active user session in page: ${userWid}`);
+              this.setConnected(userWid);
+              return;
+            }
+          } catch (_) {}
+        }
+      } catch (err) {
+        logger.debug(`[Watchdog] Error polling client state: ${err.message}`);
+      }
+
+      if (checks === 60) {
+        logger.warn('WhatsApp initial sync is taking longer than usual (>3 mins). Retaining session...');
+      }
+    }, 3000);
+  }
+
+  /**
+   * Stops the active watchdog timer.
+   */
+  stopWatchdog() {
+    if (this.watchdogInterval) {
+      clearInterval(this.watchdogInterval);
+      this.watchdogInterval = null;
+      logger.debug('Stopped WhatsApp connection watchdog.');
+    }
+  }
+
+  /**
+   * Initializes the WhatsApp Web client with LocalAuth and resilient event listeners.
    */
   async initialize() {
     if (this.status === 'CONNECTED' || this.status === 'INITIALIZING') {
@@ -79,11 +180,20 @@ class WhatsAppService {
 
     logger.info(`Initializing WhatsApp Client with auth path: ${config.whatsappAuthPath}`);
 
+    const cachePath = path.join(config.whatsappAuthPath, 'cache');
+    try {
+      fs.mkdirSync(cachePath, { recursive: true });
+    } catch (_) {}
+
     try {
       this.client = new Client({
         authStrategy: new LocalAuth({
           dataPath: config.whatsappAuthPath
         }),
+        webVersionCache: {
+          type: 'local',
+          path: cachePath
+        },
         puppeteer: {
           headless: true,
           executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
@@ -103,6 +213,8 @@ class WhatsAppService {
       this.client.on('qr', async (qr) => {
         this.status = 'QR_READY';
         this.qrCodeRaw = qr;
+        this.loadingPercent = null;
+        this.loadingMessage = null;
         logger.info('WhatsApp QR Code generated. Scan to authenticate:');
         qrcodeTerminal.generate(qr, { small: true });
 
@@ -116,32 +228,47 @@ class WhatsAppService {
       this.client.on('authenticating', () => {
         this.status = 'AUTHENTICATING';
         logger.info('WhatsApp Client is authenticating...');
+        this.startWatchdog();
       });
 
       this.client.on('authenticated', () => {
         this.status = 'AUTHENTICATING';
         this.qrCodeDataUrl = null;
         this.qrCodeRaw = null;
-        logger.info('WhatsApp Client authenticated successfully.');
+        logger.info('WhatsApp Client authenticated successfully. Syncing session...');
+        this.startWatchdog();
+      });
+
+      this.client.on('loading_screen', (percent, message) => {
+        this.status = 'AUTHENTICATING';
+        this.loadingPercent = percent;
+        this.loadingMessage = message || 'Syncing chats';
+        logger.info(`WhatsApp sync progress: ${percent}% - ${this.loadingMessage}`);
+      });
+
+      this.client.on('change_state', (state) => {
+        logger.info(`WhatsApp connection state changed: ${state}`);
+        if (state === 'CONNECTED') {
+          this.setConnected();
+        }
+      });
+
+      this.client.on('ready', () => {
+        this.setConnected(this.client.info?.wid?.user);
       });
 
       this.client.on('auth_failure', (msg) => {
         this.status = 'DISCONNECTED';
         this.initError = msg;
+        this.stopWatchdog();
         logger.error(`WhatsApp authentication failure: ${msg}`);
-      });
-
-      this.client.on('ready', () => {
-        this.status = 'CONNECTED';
-        this.readyTimestamp = new Date().toISOString();
-        this.authenticatedUser = this.client.info?.wid?.user || 'Active User';
-        logger.info(`WhatsApp Client is READY! Connected as: ${this.authenticatedUser}`);
       });
 
       this.client.on('disconnected', (reason) => {
         this.status = 'DISCONNECTED';
         this.qrCodeDataUrl = null;
         this.qrCodeRaw = null;
+        this.stopWatchdog();
         logger.warn(`WhatsApp Client disconnected. Reason: ${reason}`);
       });
 
@@ -149,11 +276,13 @@ class WhatsAppService {
       this.client.initialize().catch((err) => {
         this.status = 'DISCONNECTED';
         this.initError = err.message;
+        this.stopWatchdog();
         logger.error(`Failed to launch WhatsApp client: ${err.message}`);
       });
     } catch (err) {
       this.status = 'DISCONNECTED';
       this.initError = err.message;
+      this.stopWatchdog();
       logger.error(`Exception initializing WhatsApp client: ${err.message}`);
     }
   }
@@ -169,6 +298,8 @@ class WhatsAppService {
       readyTimestamp: this.readyTimestamp,
       hasQr: !!this.qrCodeDataUrl,
       qrCodeDataUrl: this.qrCodeDataUrl,
+      loadingPercent: this.loadingPercent,
+      loadingMessage: this.loadingMessage,
       configuredRecipientsCount: config.recipientNumbers.length,
       configuredRecipients: config.recipientNumbers
     };

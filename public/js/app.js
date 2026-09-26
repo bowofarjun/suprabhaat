@@ -220,10 +220,38 @@ function updateWhatsAppBadge(wa) {
     text.textContent = `WhatsApp: Connected (${wa.user || 'Active'})`;
     if (qrContainer) {
       qrContainer.innerHTML = `
-        <div style="padding: 1.5rem; color: #166534;">
-          <div style="font-size: 3rem;">✅</div>
-          <h3>WhatsApp Web Connected!</h3>
-          <p>Session active. Morning blessings will be dispatched automatically.</p>
+        <div style="padding: 1.5rem; color: #166534; text-align: center;">
+          <div style="font-size: 3rem; margin-bottom: 0.5rem;">✅</div>
+          <h3 style="margin-bottom: 0.25rem;">WhatsApp Web Connected!</h3>
+          <p style="color: #15803d; font-size: 0.9rem;">Session active (${wa.user || 'Active User'}). Morning blessings will be dispatched automatically.</p>
+        </div>
+      `;
+    }
+  } else if (wa?.status === 'AUTHENTICATING') {
+    badge.classList.add('status-authenticating');
+    const syncText = wa.loadingPercent !== null && wa.loadingPercent !== undefined
+      ? `WhatsApp: Syncing (${wa.loadingPercent}%)`
+      : 'WhatsApp: Linking & Syncing...';
+    text.textContent = syncText;
+    if (qrContainer) {
+      qrContainer.innerHTML = `
+        <div style="padding: 1.5rem; text-align: center;">
+          <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">📲</div>
+          <h3 style="color: #d97706; margin-bottom: 0.35rem;">Phone Linked! Syncing Session...</h3>
+          <p style="color: #6b7280; font-size: 0.85rem; margin-bottom: 1rem;">
+            WhatsApp verified your phone successfully. Downloading chat history and securing connection...
+          </p>
+          ${wa.loadingPercent !== null && wa.loadingPercent !== undefined ? `
+            <div style="background: #e5e7eb; border-radius: 9999px; height: 10px; overflow: hidden; width: 80%; margin: 0.5rem auto;">
+              <div style="background: #f59e0b; height: 100%; width: ${wa.loadingPercent}%; transition: width 0.3s;"></div>
+            </div>
+            <p style="font-size: 0.8rem; color: #b45309; margin-top: 0.5rem; font-weight: 600;">
+              ${wa.loadingPercent}% &bull; ${wa.loadingMessage || 'Syncing chats'}
+            </p>
+          ` : `
+            <div class="spiritual-spinner" style="margin: 0 auto;"></div>
+            <p style="font-size: 0.8rem; color: #92400e; margin-top: 0.5rem;">Securing session in container...</p>
+          `}
         </div>
       `;
     }

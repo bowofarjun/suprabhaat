@@ -86,3 +86,26 @@ test('cleanupChromiumLocks recursively removes stale Chromium lock files', async
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
+test('WhatsAppService setConnected transitions state to CONNECTED and resets QR and sync stats', () => {
+  whatsAppService.status = 'AUTHENTICATING';
+  whatsAppService.qrCodeDataUrl = 'data:image/png;base64,fake';
+  whatsAppService.qrCodeRaw = 'fake-qr';
+  whatsAppService.loadingPercent = 45;
+  whatsAppService.loadingMessage = 'Downloading chats';
+
+  whatsAppService.setConnected('917905223180');
+
+  assert.strictEqual(whatsAppService.status, 'CONNECTED');
+  assert.strictEqual(whatsAppService.authenticatedUser, '917905223180');
+  assert.strictEqual(whatsAppService.qrCodeDataUrl, null);
+  assert.strictEqual(whatsAppService.qrCodeRaw, null);
+  assert.strictEqual(whatsAppService.loadingPercent, 100);
+  assert.ok(whatsAppService.readyTimestamp);
+
+  const status = whatsAppService.getStatus();
+  assert.strictEqual(status.connected, true);
+  assert.strictEqual(status.loadingPercent, 100);
+  assert.strictEqual(status.user, '917905223180');
+});
+
+

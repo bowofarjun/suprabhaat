@@ -64,8 +64,8 @@ COPY --chown=suprabhaat:suprabhaat src/ ./src/
 COPY --chown=suprabhaat:suprabhaat public/ ./public/
 
 # Ensure runtime directories exist with correct permissions
-RUN mkdir -p /app/.wwebjs_auth /app/public/images && \
-    chown -R suprabhaat:suprabhaat /app/.wwebjs_auth /app/public/images
+RUN mkdir -p /app/.wwebjs_auth /app/.wwebjs_cache /app/public/images /app/storage && \
+    chown -R suprabhaat:suprabhaat /app
 
 # Run as non-root user
 USER suprabhaat

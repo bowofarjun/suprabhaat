@@ -161,6 +161,17 @@ body {
   animation: pulse 1.5s infinite;
 }
 
+.status-authenticating {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+}
+.status-authenticating .status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+  animation: pulse 1s infinite;
+}
+
 .status-disconnected {
   background: #f3f4f6;
   color: #4b5563;
