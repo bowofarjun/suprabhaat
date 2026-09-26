@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { config, formatWhatsAppJid } from '../config/index.js';
 import { logger } from '../utils/logger.js';
+import { applyWWebJSPatch } from '../../scripts/patch-wwebjs.js';
 
 class WhatsAppService {
   constructor() {
@@ -27,6 +28,14 @@ class WhatsAppService {
     }
 
     this.status = 'INITIALIZING';
+    
+    // Ensure whatsapp-web.js media patch is applied
+    try {
+      applyWWebJSPatch();
+    } catch (patchErr) {
+      logger.warn(`Could not run automatic WWebJS patch: ${patchErr.message}`);
+    }
+
     logger.info(`Initializing WhatsApp Client with auth path: ${config.whatsappAuthPath}`);
 
     try {

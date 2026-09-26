@@ -1,9 +1,7 @@
-process.env.NODE_ENV = 'test';
-
 import test from 'node:test';
 import assert from 'node:assert';
 import http from 'node:http';
-import { app } from '../src/index.js';
+import { app } from '../src/app.js';
 
 test('SuPrabhaat Express server boots, serves health probes, API, and Monday default images', async (t) => {
   let server;

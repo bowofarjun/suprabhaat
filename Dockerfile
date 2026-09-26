@@ -10,6 +10,7 @@ WORKDIR /app
 
 # Install build dependencies if needed
 COPY package*.json ./
+COPY scripts/ ./scripts/
 RUN npm ci --omit=dev
 
 # ------------------------------------------------------------------------------
@@ -58,6 +59,7 @@ COPY --from=builder --chown=suprabhaat:suprabhaat /app/node_modules ./node_modul
 
 # Copy application code
 COPY --chown=suprabhaat:suprabhaat package*.json ./
+COPY --chown=suprabhaat:suprabhaat scripts/ ./scripts/
 COPY --chown=suprabhaat:suprabhaat src/ ./src/
 COPY --chown=suprabhaat:suprabhaat public/ ./public/
 
