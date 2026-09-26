@@ -37,3 +37,13 @@ test('GalleryService finds image by identifier', () => {
   assert.strictEqual(found.id, first.id);
   assert.strictEqual(found.filename, first.filename);
 });
+
+test('GalleryService returns freshest image with getLatestImageForDay', () => {
+  const latestMonday = GalleryService.getLatestImageForDay('monday');
+  assert.ok(latestMonday, 'Latest Monday image must exist');
+  assert.strictEqual(latestMonday.day, 'monday');
+  assert.ok(latestMonday.filename.includes('monday'));
+  assert.ok(latestMonday.createdAt);
+  assert.ok(latestMonday.formattedDate.includes('IST'));
+});
+

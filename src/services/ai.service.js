@@ -2,6 +2,7 @@ import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import { getDayConfig } from '../constants/deities.js';
 import { getFormattedDateTimeStamp } from '../utils/date.js';
+import { GalleryService } from './gallery.service.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -154,13 +155,25 @@ export async function getOrGenerateDeityImage(dayKey) {
     }
   }
 
-  // Resilient Fallback to curated image library
+  // Resilient Fallback to freshest curated or generated image in library
+  const latest = GalleryService.getLatestImageForDay(dayConfig.id);
+  if (latest) {
+    return {
+      filename: latest.filename,
+      filepath: path.join(config.imagesDir, latest.filename),
+      url: latest.url,
+      isGenerated: latest.isGenerated,
+      createdAt: latest.createdAt
+    };
+  }
+
   const filename = dayConfig.defaultImage;
   const filepath = path.join(config.imagesDir, filename);
   return {
     filename,
     filepath,
     url: `/images/${filename}`,
-    isGenerated: false
+    isGenerated: false,
+    createdAt: new Date().toISOString()
   };
 }

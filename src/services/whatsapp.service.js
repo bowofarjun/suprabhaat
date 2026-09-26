@@ -201,9 +201,12 @@ class WhatsAppService {
       try {
         logger.info(`Dispatching WhatsApp morning blessing to: ${jid}`);
         const response = await this.client.sendMessage(jid, media, {
-          caption: captionText
+          caption: captionText,
+          sendMediaAsHd: true
         });
-        results.push({ recipient: jid, success: true, messageId: response.id?.id });
+        const msgId = response?.id?._serialized || response?.id?.id || (response?.id ? String(response.id) : `sent_${Date.now()}`);
+        logger.info(`Successfully dispatched WhatsApp message to ${jid} (Message ID: ${msgId})`);
+        results.push({ recipient: jid, success: true, messageId: msgId });
         
         // Polite delay between sends to prevent triggering rate limits
         await new Promise((res) => setTimeout(res, 1200));

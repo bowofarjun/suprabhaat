@@ -23,34 +23,16 @@ export class GalleryService {
 
     const items = [];
 
-    // Map known file associations
-    const fileToDayMap = {
-      'monday_shiva_shubh_somvaar.png': 'monday',
-      '1789368804447.png': 'monday',
-      'tuesday_hanuman_shubh_mangalvaar.jpg': 'tuesday',
-      'wednesday_ganesha_shubh_budhvaar.jpg': 'wednesday',
-      'thursday_vishnu_shubh_guruvaar.png': 'thursday',
-      '1787783359587.png': 'thursday',
-      'friday_lakshmi_shubh_shukravaar.jpg': 'friday',
-      'saturday_shani_shubh_shanivaar.jpg': 'saturday',
-      'sunday_surya_shubh_ravivaar.png': 'sunday',
-      '1789270414548.png': 'sunday'
-    };
-
     for (const filename of files) {
       const ext = path.extname(filename).toLowerCase();
       if (!validExtensions.includes(ext)) continue;
 
-      let detectedDay = fileToDayMap[filename];
-
-      if (!detectedDay) {
-        // Detect from prefix e.g. gen_monday_... or monday_...
-        const lower = filename.toLowerCase();
-        for (const day of DAYS_ORDER) {
-          if (lower.includes(day)) {
-            detectedDay = day;
-            break;
-          }
+      let detectedDay = null;
+      const lower = filename.toLowerCase();
+      for (const day of DAYS_ORDER) {
+        if (lower.includes(day)) {
+          detectedDay = day;
+          break;
         }
       }
 
@@ -64,8 +46,31 @@ export class GalleryService {
         fileStat = fs.statSync(fullPath);
       } catch (_) {}
 
-      const fileTimestamp = fileStat ? fileStat.mtime : new Date();
-      const formattedDate = formatDisplayDateTime(fileTimestamp);
+      // Robust timestamp extraction:
+      // 1. Look for IST timestamp pattern: YYYY-MM-DD_HH-mm-ss_IST
+      // 2. Look for 13-digit millisecond epoch
+      // 3. Fallback to fileStat.mtime
+      let fileDate = fileStat ? fileStat.mtime : new Date();
+
+      const istMatch = filename.match(/(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})_IST/);
+      if (istMatch) {
+        const [, year, month, dayStr, hour, minute, second] = istMatch;
+        const isoWithOffset = `${year}-${month}-${dayStr}T${hour}:${minute}:${second}+05:30`;
+        const parsedDate = new Date(isoWithOffset);
+        if (!isNaN(parsedDate.getTime())) {
+          fileDate = parsedDate;
+        }
+      } else {
+        const epochMatch = filename.match(/(\d{13})/);
+        if (epochMatch) {
+          const parsedEpoch = new Date(parseInt(epochMatch[1], 10));
+          if (!isNaN(parsedEpoch.getTime())) {
+            fileDate = parsedEpoch;
+          }
+        }
+      }
+
+      const formattedDate = formatDisplayDateTime(fileDate);
 
       items.push({
         id: Buffer.from(filename).toString('hex').slice(0, 12),
@@ -82,17 +87,20 @@ export class GalleryService {
         colors: dayConfig.colors,
         isDefault: day === 'monday',
         isGenerated: filename.startsWith('gen_'),
-        createdAt: fileTimestamp.toISOString(),
+        createdAt: fileDate.toISOString(),
         formattedDate,
         sampleBlessing: dayConfig.sampleBlessings[0]
       });
     }
 
-    // Sort items: Put Monday first, then follow standard weekly order
+    // Sort items: Primary by weekly day order, Secondary by creation date descending (newest first)
     items.sort((a, b) => {
       const indexA = DAYS_ORDER.indexOf(a.day);
       const indexB = DAYS_ORDER.indexOf(b.day);
-      return indexA - indexB;
+      if (indexA !== indexB) {
+        return indexA - indexB;
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt);
     });
 
     // Apply filtering
@@ -104,6 +112,21 @@ export class GalleryService {
     const filtered = items.filter((item) => item.day === normalizedFilter);
     // If no items match filter, return Monday items
     return filtered.length > 0 ? filtered : items.filter((item) => item.day === 'monday');
+  }
+
+  /**
+   * Retrieves the latest/freshest image for a given day.
+   *
+   * @param {string} dayKey
+   * @returns {Object|null}
+   */
+  static getLatestImageForDay(dayKey) {
+    const images = this.listImages(dayKey);
+    if (!images || images.length === 0) {
+      return null;
+    }
+    // Return freshest image (listImages sorts descending by createdAt for the filtered day)
+    return images[0];
   }
 
   /**

@@ -30,13 +30,13 @@ Following ancient Vedic traditions, each day of the week is dedicated to a speci
 
 | Day | Deity | Traditional Greeting | Transliteration | Spiritual Focus | Default Artwork |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Monday** ⭐ *(Default)* | **Lord Shiva & Shiva Parivar** | **शुभ सोमवार** | *Shubh Somvaar* | Inner Peace, Meditation, Auspicious Starts | `monday_shiva_shubh_somvaar.png` |
-| **Tuesday** | **Lord Hanuman** | **शुभ मंगलवार** | *Shubh Mangalvaar* | Devotion, Supreme Strength, Protection | `tuesday_hanuman_shubh_mangalvaar.jpg` |
-| **Wednesday** | **Lord Ganesha** | **शुभ बुधवार** | *Shubh Budhvaar* | Intellect, Removal of Obstacles, Prosperity | `wednesday_ganesha_shubh_budhvaar.jpg` |
-| **Thursday** | **Lord Vishnu / Shri Krishna** | **शुभ गुरुवार** | *Shubh Guruvaar* | Compassion, Dharma, Spiritual Guidance | `thursday_vishnu_shubh_guruvaar.png` |
-| **Friday** | **Goddess Lakshmi** | **शुभ शुक्रवार** | *Shubh Shukravaar* | Radiance, Fortune, Inner & Outer Abundance | `friday_lakshmi_shubh_shukravaar.jpg` |
-| **Saturday** | **Lord Shani Dev** | **शुभ शनिवार** | *Shubh Shanivaar* | Right Conduct, Patience, Divine Karma | `saturday_shani_shubh_shanivaar.jpg` |
-| **Sunday** | **Lord Surya** | **शुभ रविवार** | *Shubh Ravivaar* | Life Force, Solar Vitality, New Dawn | `sunday_surya_shubh_ravivaar.png` |
+| **Monday** ⭐ *(Default)* | **Lord Shiva & Shiva Parivar** | **शुभ सोमवार** | *Shubh Somvaar* | Inner Peace, Meditation, Auspicious Starts | `monday_shiva_shubh_somvaar_2026-09-14_12-23-24_IST.png` |
+| **Tuesday** | **Lord Hanuman** | **शुभ मंगलवार** | *Shubh Mangalvaar* | Devotion, Supreme Strength, Protection | `tuesday_hanuman_shubh_mangalvaar_2026-09-26_17-16-56_IST.jpg` |
+| **Wednesday** | **Lord Ganesha** | **शुभ बुधवार** | *Shubh Budhvaar* | Intellect, Removal of Obstacles, Prosperity | `wednesday_ganesha_shubh_budhvaar_2026-09-26_17-17-22_IST.jpg` |
+| **Thursday** | **Lord Vishnu / Shri Krishna** | **शुभ गुरुवार** | *Shubh Guruvaar* | Compassion, Dharma, Spiritual Guidance | `thursday_vishnu_shubh_guruvaar_2026-08-27_03-59-19_IST.png` |
+| **Friday** | **Goddess Lakshmi** | **शुभ शुक्रवार** | *Shubh Shukravaar* | Radiance, Fortune, Inner & Outer Abundance | `friday_lakshmi_shubh_shukravaar_2026-09-26_17-17-52_IST.jpg` |
+| **Saturday** | **Lord Shani Dev** | **शुभ शनिवार** | *Shubh Shanivaar* | Right Conduct, Patience, Divine Karma | `saturday_shani_shubh_shanivaar_2026-09-26_17-18-24_IST.jpg` |
+| **Sunday** | **Lord Surya** | **शुभ रविवार** | *Shubh Ravivaar* | Life Force, Solar Vitality, New Dawn | `sunday_surya_shubh_ravivaar_2026-09-13_09-03-34_IST.png` |
 
 ---
 

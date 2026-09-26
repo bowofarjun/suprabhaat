@@ -19,10 +19,9 @@ export const DAY_DEITY_MAPPING = {
       secondary: '#E0E7FF',
       accent: '#6366F1'
     },
-    defaultImage: 'monday_shiva_shubh_somvaar.png',
+    defaultImage: 'monday_shiva_shubh_somvaar_2026-09-14_12-23-24_IST.png',
     curatedImages: [
-      'monday_shiva_shubh_somvaar.png',
-      '1789368804447.png'
+      'monday_shiva_shubh_somvaar_2026-09-14_12-23-24_IST.png'
     ],
     sampleBlessings: [
       'May the divine grace of Mahadev bring profound peace and serenity to your soul.\nWishing you a calm, purposeful, and blessed Monday! 🌸🕉️',
@@ -45,9 +44,9 @@ export const DAY_DEITY_MAPPING = {
       secondary: '#FFEDD5',
       accent: '#F97316'
     },
-    defaultImage: 'tuesday_hanuman_shubh_mangalvaar.jpg',
+    defaultImage: 'tuesday_hanuman_shubh_mangalvaar_2026-09-26_17-16-56_IST.jpg',
     curatedImages: [
-      'tuesday_hanuman_shubh_mangalvaar.jpg'
+      'tuesday_hanuman_shubh_mangalvaar_2026-09-26_17-16-56_IST.jpg'
     ],
     sampleBlessings: [
       'May Sankat Mochan Hanuman ji bless you with boundless courage and protect you from all harm.\nWishing you a vibrant, triumphant, and energetic Tuesday! 🚩🙏',
@@ -70,9 +69,9 @@ export const DAY_DEITY_MAPPING = {
       secondary: '#FEF3C7',
       accent: '#F59E0B'
     },
-    defaultImage: 'wednesday_ganesha_shubh_budhvaar.jpg',
+    defaultImage: 'wednesday_ganesha_shubh_budhvaar_2026-09-26_17-17-22_IST.jpg',
     curatedImages: [
-      'wednesday_ganesha_shubh_budhvaar.jpg'
+      'wednesday_ganesha_shubh_budhvaar_2026-09-26_17-17-22_IST.jpg'
     ],
     sampleBlessings: [
       'May Vighnaharta Lord Ganesha remove every obstacle and illuminate your mind with divine intellect.\nWishing you a prosperous, creative, and joyful Wednesday! 🐘🌸',
@@ -95,10 +94,9 @@ export const DAY_DEITY_MAPPING = {
       secondary: '#FEF9C3',
       accent: '#EAB308'
     },
-    defaultImage: 'thursday_vishnu_shubh_guruvaar.png',
+    defaultImage: 'thursday_vishnu_shubh_guruvaar_2026-08-27_03-59-19_IST.png',
     curatedImages: [
-      'thursday_vishnu_shubh_guruvaar.png',
-      '1787783359587.png'
+      'thursday_vishnu_shubh_guruvaar_2026-08-27_03-59-19_IST.png'
     ],
     sampleBlessings: [
       'May the gentle music of Shri Krishna’s flute inspire peace, virtue, and compassion in your life.\nWishing you a spiritually uplifting and tranquil Thursday! 🦚🌸',
@@ -121,9 +119,9 @@ export const DAY_DEITY_MAPPING = {
       secondary: '#FFE4E6',
       accent: '#F43F5E'
     },
-    defaultImage: 'friday_lakshmi_shubh_shukravaar.jpg',
+    defaultImage: 'friday_lakshmi_shubh_shukravaar_2026-09-26_17-17-52_IST.jpg',
     curatedImages: [
-      'friday_lakshmi_shubh_shukravaar.jpg'
+      'friday_lakshmi_shubh_shukravaar_2026-09-26_17-17-52_IST.jpg'
     ],
     sampleBlessings: [
       'May Devi Mahalakshmi shower your home with everlasting prosperity, radiant health, and contentment.\nWishing you a joyful, abundant, and blessed Friday! 🪷💰',
@@ -146,9 +144,9 @@ export const DAY_DEITY_MAPPING = {
       secondary: '#E0E7FF',
       accent: '#4F46E5'
     },
-    defaultImage: 'saturday_shani_shubh_shanivaar.jpg',
+    defaultImage: 'saturday_shani_shubh_shanivaar_2026-09-26_17-18-24_IST.jpg',
     curatedImages: [
-      'saturday_shani_shubh_shanivaar.jpg'
+      'saturday_shani_shubh_shanivaar_2026-09-26_17-18-24_IST.jpg'
     ],
     sampleBlessings: [
       'May Lord Shani Dev reward your righteous deeds, steady your patience, and guide your moral journey.\nWishing you a disciplined, balanced, and peaceful Saturday! ⚖️🙏',
@@ -171,10 +169,9 @@ export const DAY_DEITY_MAPPING = {
       secondary: '#FEF3C7',
       accent: '#D97706'
     },
-    defaultImage: 'sunday_surya_shubh_ravivaar.png',
+    defaultImage: 'sunday_surya_shubh_ravivaar_2026-09-13_09-03-34_IST.png',
     curatedImages: [
-      'sunday_surya_shubh_ravivaar.png',
-      '1789270414548.png'
+      'sunday_surya_shubh_ravivaar_2026-09-13_09-03-34_IST.png'
     ],
     sampleBlessings: [
       'May the golden rays of Surya Bhagwan dispel all shadows and infuse your day with vitality and light.\nWishing you an invigorating, healthy, and luminous Sunday! ☀️🌸',
