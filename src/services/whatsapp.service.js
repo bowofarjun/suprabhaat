@@ -8,6 +8,40 @@ import { config, formatWhatsAppJid } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import { applyWWebJSPatch } from '../../scripts/patch-wwebjs.js';
 
+/**
+ * Recursively cleans up stale Chromium singleton lock files.
+ * In Docker containers with persistent volumes, when a container restarts,
+ * Chromium detects the old container hostname/PID in SingletonLock and crashes with Code 21.
+ */
+export function cleanupChromiumLocks(dirPath) {
+  if (!fs.existsSync(dirPath)) return;
+
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        cleanupChromiumLocks(fullPath);
+      } else if (
+        entry.name.startsWith('Singleton') || // SingletonLock, SingletonCookie, SingletonSocket
+        entry.name === 'parent.lock' ||
+        entry.name === 'lockfile'
+      ) {
+        try {
+          fs.unlinkSync(fullPath);
+          logger.info(`Cleaned up stale Chromium profile lock: ${fullPath}`);
+        } catch (_) {
+          try {
+            fs.rmSync(fullPath, { force: true });
+          } catch (_) {}
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn(`Could not scan for Chromium locks in ${dirPath}: ${err.message}`);
+  }
+}
+
 class WhatsAppService {
   constructor() {
     this.client = null;
@@ -36,6 +70,13 @@ class WhatsAppService {
       logger.warn(`Could not run automatic WWebJS patch: ${patchErr.message}`);
     }
 
+    // Clean up any stale Chromium profile locks from previous container runs
+    try {
+      cleanupChromiumLocks(config.whatsappAuthPath);
+    } catch (cleanupErr) {
+      logger.warn(`Could not clean Chromium locks: ${cleanupErr.message}`);
+    }
+
     logger.info(`Initializing WhatsApp Client with auth path: ${config.whatsappAuthPath}`);
 
     try {
@@ -53,7 +94,8 @@ class WhatsAppService {
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--disable-software-rasterizer'
           ]
         }
       });

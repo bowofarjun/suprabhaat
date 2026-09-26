@@ -60,3 +60,29 @@ test('WhatsAppService correctly extracts messageId when returned by client', asy
   assert.strictEqual(result.success, true);
   assert.strictEqual(result.details[0].messageId, 'true_919876543210@c.us_3EB01234567890ABCDEF');
 });
+
+test('cleanupChromiumLocks recursively removes stale Chromium lock files', async () => {
+  const { cleanupChromiumLocks } = await import('../src/services/whatsapp.service.js');
+  const fs = await import('fs');
+  const tempDir = path.join(config.projectRoot, 'storage', 'test-locks');
+  const sessionDir = path.join(tempDir, 'session');
+
+  fs.mkdirSync(sessionDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionDir, 'SingletonLock'), 'fake-host-1234');
+  fs.writeFileSync(path.join(sessionDir, 'SingletonCookie'), 'fake-cookie');
+  fs.writeFileSync(path.join(sessionDir, 'SingletonSocket'), 'fake-socket');
+  fs.writeFileSync(path.join(sessionDir, 'valid_data.json'), '{"valid": true}');
+
+  assert.ok(fs.existsSync(path.join(sessionDir, 'SingletonLock')));
+
+  cleanupChromiumLocks(tempDir);
+
+  assert.strictEqual(fs.existsSync(path.join(sessionDir, 'SingletonLock')), false);
+  assert.strictEqual(fs.existsSync(path.join(sessionDir, 'SingletonCookie')), false);
+  assert.strictEqual(fs.existsSync(path.join(sessionDir, 'SingletonSocket')), false);
+  assert.ok(fs.existsSync(path.join(sessionDir, 'valid_data.json')), 'Non-lock files should be preserved');
+
+  // Clean up test dir
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
+

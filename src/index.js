@@ -1,7 +1,7 @@
 import { app } from './app.js';
 import { config } from './config/index.js';
 import { logger } from './utils/logger.js';
-import { whatsAppService } from './services/whatsapp.service.js';
+import { whatsAppService, cleanupChromiumLocks } from './services/whatsapp.service.js';
 import { schedulerService } from './services/scheduler.service.js';
 import { DispatchService } from './services/dispatch.service.js';
 import { getCurrentDayConfig } from './constants/deities.js';
@@ -60,9 +60,17 @@ async function bootstrap() {
   schedulerService.start();
 
   // Graceful Shutdown
-  const shutdown = () => {
+  const shutdown = async () => {
     logger.info('Shutting down SuPrabhaat gracefully...');
     schedulerService.stop();
+    try {
+      if (whatsAppService.client) {
+        await whatsAppService.client.destroy();
+      }
+    } catch (_) {}
+    try {
+      cleanupChromiumLocks(config.whatsappAuthPath);
+    } catch (_) {}
     server.close(() => {
       logger.info('HTTP server closed. Exiting process.');
       process.exit(0);
