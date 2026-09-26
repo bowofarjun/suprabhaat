@@ -15,6 +15,16 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchDaysAndInitializeFilters();
   fetchSystemStatus();
   setInterval(fetchSystemStatus, 6000); // Poll status every 6s for QR & WhatsApp health
+
+  // Keyboard shortcut: Escape closes any active modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeLightbox();
+      closeDispatchModal();
+      closeWhatsAppModal();
+      closeHistoryModal();
+    }
+  });
 });
 
 /**
@@ -151,23 +161,23 @@ function renderGallery() {
       const blessingLines = (item.sampleBlessing || '').replace(/\n/g, '<br>');
       return `
         <article class="image-card">
-          <div class="card-media" onclick="openLightbox('${item.url}', '${item.deity}', '${escapeHtml(item.sampleBlessing || '')}')">
-            <img src="${item.url}" alt="${item.deity}" class="card-img" loading="lazy">
-            <span class="card-overlay-badge">${item.dayName} • ${item.greetingEnglish}</span>
-            <span class="card-overlay-hindi">${item.greetingHindi}</span>
-            <span class="card-overlay-timestamp">🕒 ${item.formattedDate || 'Curated Asset'}</span>
+          <div class="card-media" onclick="openLightbox('${item.id}')">
+            <img src="${item.url}" alt="${escapeHtml(item.deity)}" class="card-img" loading="lazy">
+            <span class="card-overlay-badge">${escapeHtml(item.dayName)} • ${escapeHtml(item.greetingEnglish)}</span>
+            <span class="card-overlay-hindi">${escapeHtml(item.greetingHindi)}</span>
+            <span class="card-overlay-timestamp">🕒 ${escapeHtml(item.formattedDate || 'Curated Asset')}</span>
           </div>
 
           <div class="card-body">
-            <h4 class="card-deity-title">${item.deity}</h4>
-            <div class="card-theme">${item.theme || ''}</div>
+            <h4 class="card-deity-title">${escapeHtml(item.deity)}</h4>
+            <div class="card-theme">${escapeHtml(item.theme || '')}</div>
             <div class="card-blessing">${blessingLines}</div>
 
             <div class="card-actions">
               <button class="btn btn-primary btn-sm" onclick="openDispatchModalWithItem('${item.id}')">
                 <span>⚡ Send This Blessing</span>
               </button>
-              <button class="btn btn-secondary btn-sm" onclick="openLightbox('${item.url}', '${item.deity}', '${escapeHtml(item.sampleBlessing || '')}')">
+              <button class="btn btn-secondary btn-sm" onclick="openLightbox('${item.id}')">
                 <span>🔍 View</span>
               </button>
             </div>
@@ -548,15 +558,32 @@ function closeWhatsAppModal() {
 /**
  * Lightbox Modal Controls
  */
-function openLightbox(imageUrl, title, blessing) {
+function openLightbox(target, title, blessing) {
   const modal = document.getElementById('lightboxModal');
-  document.getElementById('lightboxImage').src = imageUrl;
-  document.getElementById('lightboxTitle').textContent = title;
-  document.getElementById('lightboxBlessing').innerHTML = blessing.replace(/\n/g, '<br>');
+  const imgEl = document.getElementById('lightboxImage');
+  const titleEl = document.getElementById('lightboxTitle');
+  const blessingEl = document.getElementById('lightboxBlessing');
+
+  if (!modal || !imgEl || !titleEl || !blessingEl) return;
+
+  // Resolve by ID or filename from current in-memory collection
+  const item = currentImages.find((img) => img.id === target || img.filename === target);
+  if (item) {
+    imgEl.src = item.url;
+    titleEl.textContent = `${item.deity} • ${item.greetingHindi} (${item.greetingEnglish})`;
+    blessingEl.innerHTML = (item.sampleBlessing || '').replace(/\n/g, '<br>');
+  } else {
+    imgEl.src = target || '';
+    titleEl.textContent = title || 'Sacred Deity Artwork';
+    blessingEl.innerHTML = (blessing || '').replace(/\n/g, '<br>');
+  }
+
   modal.classList.remove('hidden');
 }
+
 function closeLightbox() {
-  document.getElementById('lightboxModal').classList.add('hidden');
+  const modal = document.getElementById('lightboxModal');
+  if (modal) modal.classList.add('hidden');
 }
 
 /**
