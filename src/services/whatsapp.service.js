@@ -111,7 +111,6 @@ class WhatsAppService {
     this.loadingPercent = 100;
     this.loadingMessage = 'Ready';
     this.initError = null;
-    this.stopWatchdog();
 
     if (user) {
       this.authenticatedUser = user;
@@ -126,23 +125,31 @@ class WhatsAppService {
 
   /**
    * Starts a proactive polling watchdog once authentication begins.
-   * If the ready event is delayed by offline chat sync or injection timing,
-   * this verifies client.getState() and client page state to transition to CONNECTED.
+   * - During authentication/sync: checks every 3s to accelerate readiness.
+   * - Once connected: performs a lightweight 15s health check to ensure continuous readiness.
    */
   startWatchdog() {
     if (this.watchdogInterval) return;
-    logger.info('Started WhatsApp connection watchdog (polling for session readiness)...');
+    logger.info('Started WhatsApp connection monitor (readiness & session health)...');
 
     let checks = 0;
     this.watchdogInterval = setInterval(async () => {
       checks++;
-      if (this.status === 'CONNECTED') {
+
+      if (!this.client) {
         this.stopWatchdog();
         return;
       }
 
-      if (!this.client) {
-        this.stopWatchdog();
+      // When connected, perform periodic health check every 5 intervals (~15s)
+      if (this.status === 'CONNECTED') {
+        if (checks % 5 !== 0) return;
+        try {
+          const state = await this.client.getState().catch(() => null);
+          if (state && state !== 'CONNECTED') {
+            logger.warn(`WhatsApp state shifted from CONNECTED to ${state}`);
+          }
+        } catch (_) {}
         return;
       }
 
@@ -154,7 +161,7 @@ class WhatsAppService {
 
         if (state === 'CONNECTED') {
           logger.info(`[Watchdog] Client confirmed CONNECTED state on check #${checks}! Finalizing readiness...`);
-          this.setConnected();
+          this.setConnected(this.client.info?.wid?.user || this.authenticatedUser);
           return;
         }
 
@@ -346,10 +353,24 @@ class WhatsAppService {
       });
 
       this.client.on('loading_screen', (percent, message) => {
-        this.status = 'AUTHENTICATING';
         this.loadingPercent = percent;
         this.loadingMessage = message || 'Syncing chats';
         logger.info(`WhatsApp sync progress: ${percent}% - ${this.loadingMessage}`);
+
+        // CRITICAL FIX: If already connected or user is authenticated, NEVER downgrade to AUTHENTICATING
+        if (this.status === 'CONNECTED' || this.authenticatedUser) {
+          if (this.status !== 'CONNECTED') {
+            this.setConnected(this.authenticatedUser);
+          }
+          return;
+        }
+
+        this.status = 'AUTHENTICATING';
+
+        // When loading reaches 100%, or 90%+ with user info available, finalize connection
+        if (percent >= 100 || (percent >= 90 && this.client.info?.wid?.user)) {
+          this.setConnected(this.client.info?.wid?.user || this.authenticatedUser);
+        }
       });
 
       this.client.on('change_state', (state) => {
@@ -423,6 +444,13 @@ class WhatsAppService {
    */
   getStatus() {
     const sessionExists = fs.existsSync(path.join(config.whatsappAuthPath, 'session'));
+    const isActuallyConnected = this.status === 'CONNECTED' || (!!this.authenticatedUser && this.readyTimestamp && this.client !== null);
+
+    // Auto-heal status if client is actually connected
+    if (isActuallyConnected && this.status !== 'CONNECTED') {
+      this.status = 'CONNECTED';
+    }
+
     return {
       status: this.status,
       connected: this.status === 'CONNECTED',
@@ -477,16 +505,31 @@ class WhatsAppService {
       };
     }
 
-    // If client is currently authenticating/syncing, wait up to 30 seconds for session readiness
+    // If client is currently authenticating/syncing, check for session readiness
     if (this.status === 'AUTHENTICATING' && this.client) {
-      logger.info('WhatsApp client is currently AUTHENTICATING/syncing chats. Waiting up to 30s for session readiness before dispatching...');
-      let waitSeconds = 0;
-      while (this.status === 'AUTHENTICATING' && waitSeconds < 30) {
-        await new Promise((r) => setTimeout(r, 2000));
-        waitSeconds += 2;
-        if (this.status === 'CONNECTED') {
-          logger.info(`WhatsApp transitioned to CONNECTED after ${waitSeconds}s! Proceeding with dispatch.`);
-          break;
+      if (this.authenticatedUser && this.readyTimestamp) {
+        logger.info(`WhatsApp client has valid active session for ${this.authenticatedUser}. Finalizing CONNECTED state.`);
+        this.setConnected(this.authenticatedUser);
+      } else {
+        logger.info('WhatsApp client is currently AUTHENTICATING/syncing chats. Waiting up to 30s for session readiness before dispatching...');
+        let waitSeconds = 0;
+        while (this.status === 'AUTHENTICATING' && waitSeconds < 30) {
+          try {
+            const state = await this.client.getState().catch(() => null);
+            const user = this.client.info?.wid?.user || this.authenticatedUser;
+            if (state === 'CONNECTED' || user) {
+              logger.info(`WhatsApp client confirmed ready (${state || 'ACTIVE'}). Transitioning to CONNECTED.`);
+              this.setConnected(user);
+              break;
+            }
+          } catch (_) {}
+
+          await new Promise((r) => setTimeout(r, 2000));
+          waitSeconds += 2;
+          if (this.status === 'CONNECTED') {
+            logger.info(`WhatsApp transitioned to CONNECTED after ${waitSeconds}s! Proceeding with dispatch.`);
+            break;
+          }
         }
       }
     }

@@ -157,5 +157,43 @@ test('WhatsAppService resetState cleanly clears user, timestamps, qr, and loadin
   assert.strictEqual(status.initError, 'Session logged out');
 });
 
+test('WhatsAppService getStatus self-heals status to CONNECTED when authenticatedUser and readyTimestamp exist with active client', () => {
+  whatsAppService.client = { getState: async () => 'CONNECTED' };
+  whatsAppService.status = 'AUTHENTICATING';
+  whatsAppService.authenticatedUser = '919457922233';
+  whatsAppService.readyTimestamp = new Date().toISOString();
+  whatsAppService.loadingPercent = 99;
+
+  const status = whatsAppService.getStatus();
+  assert.strictEqual(status.connected, true);
+  assert.strictEqual(status.status, 'CONNECTED');
+  assert.strictEqual(status.user, '919457922233');
+
+  whatsAppService.resetState();
+});
+
+test('WhatsAppService sendBlessing self-heals from AUTHENTICATING to CONNECTED when user is authenticated', async () => {
+  const dummyImagePath = path.join(config.imagesDir, 'monday_shiva_shubh_somvaar_2026-09-14_12-23-24_IST.png');
+  whatsAppService.client = {
+    sendMessage: async () => ({ id: { id: 'test_msg_id', _serialized: 'true_test' } }),
+    getState: async () => 'CONNECTED'
+  };
+  whatsAppService.status = 'AUTHENTICATING';
+  whatsAppService.authenticatedUser = '919457922233';
+  whatsAppService.readyTimestamp = new Date().toISOString();
+
+  const result = await whatsAppService.sendBlessing(
+    ['+919457922233'],
+    dummyImagePath,
+    'Divine Sunday Morning Blessing'
+  );
+
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(whatsAppService.status, 'CONNECTED');
+
+  whatsAppService.resetState();
+});
+
+
 
 
