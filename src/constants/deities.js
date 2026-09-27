@@ -169,8 +169,9 @@ export const DAY_DEITY_MAPPING = {
       secondary: '#FEF3C7',
       accent: '#D97706'
     },
-    defaultImage: 'sunday_surya_shubh_ravivaar_2026-09-13_09-03-34_IST.png',
+    defaultImage: 'sunday_surya_shubh_ravivaar_2026-09-27_06-18-27_IST.jpg',
     curatedImages: [
+      'sunday_surya_shubh_ravivaar_2026-09-27_06-18-27_IST.jpg',
       'sunday_surya_shubh_ravivaar_2026-09-13_09-03-34_IST.png'
     ],
     sampleBlessings: [

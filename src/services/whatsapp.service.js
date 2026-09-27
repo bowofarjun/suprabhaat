@@ -477,6 +477,20 @@ class WhatsAppService {
       };
     }
 
+    // If client is currently authenticating/syncing, wait up to 30 seconds for session readiness
+    if (this.status === 'AUTHENTICATING' && this.client) {
+      logger.info('WhatsApp client is currently AUTHENTICATING/syncing chats. Waiting up to 30s for session readiness before dispatching...');
+      let waitSeconds = 0;
+      while (this.status === 'AUTHENTICATING' && waitSeconds < 30) {
+        await new Promise((r) => setTimeout(r, 2000));
+        waitSeconds += 2;
+        if (this.status === 'CONNECTED') {
+          logger.info(`WhatsApp transitioned to CONNECTED after ${waitSeconds}s! Proceeding with dispatch.`);
+          break;
+        }
+      }
+    }
+
     if (this.status !== 'CONNECTED' || !this.client) {
       logger.warn(`WhatsApp client is not ready (Current status: ${this.status}). Dispatch aborted.`);
       return {

@@ -116,64 +116,72 @@ export async function getOrGenerateDeityImage(dayKey) {
   const dayConfig = getDayConfig(dayKey);
   const clientObj = await getGenAIClient();
 
-  // If GenAI client supports image generation
+  // If GenAI client is available, attempt dynamic generation
   if (clientObj && config.geminiApiKey && clientObj.type === 'google-genai') {
     try {
       const prompt = `Vintage traditional Indian calendar art watercolor painting of ${dayConfig.deity}, ${dayConfig.promptGuide}. At the bottom, elegant traditional lettering says "${dayConfig.greetingHindi}" and "${dayConfig.greetingEnglish}". Ornate decorative paisley border, warm peaceful temple aesthetics, 8k masterpiece.`;
-      
-      if (clientObj.client.models && typeof clientObj.client.models.generateImages === 'function') {
-        const response = await clientObj.client.models.generateImages({
-          model: 'imagen-3.0-generate-002',
-          prompt,
-          config: {
-            numberOfImages: 1,
-            aspectRatio: '3:4',
-            outputMimeType: 'image/jpeg'
+
+      // Modern Gemini image model endpoint
+      const imageModels = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image'];
+      for (const model of imageModels) {
+        try {
+          const response = await clientObj.client.models.generateContent({
+            model,
+            contents: prompt
+          });
+
+          const parts = response?.candidates?.[0]?.content?.parts || [];
+          for (const part of parts) {
+            if (part.inlineData?.data) {
+              const imageBytesBase64 = part.inlineData.data;
+              const timestampStr = getFormattedDateTimeStamp();
+              const ext = part.inlineData.mimeType?.includes('png') ? 'png' : 'jpg';
+              const filename = `gen_${dayConfig.id}_${timestampStr}.${ext}`;
+              const filepath = path.join(config.imagesDir, filename);
+
+              fs.writeFileSync(filepath, Buffer.from(imageBytesBase64, 'base64'));
+              logger.info(`Generated new deity portrait via Gemini (${model}): ${filename}`);
+
+              return {
+                filename,
+                filepath,
+                url: `/images/${filename}`,
+                isGenerated: true,
+                source: 'ai-generated',
+                createdAt: new Date().toISOString()
+              };
+            }
           }
-        });
-
-        if (response?.generatedImages?.[0]?.image?.imageBytes) {
-          const imageBytesBase64 = response.generatedImages[0].image.imageBytes;
-          const timestampStr = getFormattedDateTimeStamp();
-          const filename = `gen_${dayConfig.id}_${timestampStr}.jpg`;
-          const filepath = path.join(config.imagesDir, filename);
-
-          fs.writeFileSync(filepath, Buffer.from(imageBytesBase64, 'base64'));
-          logger.info(`Generated new deity portrait via Imagen with timestamp: ${filename}`);
-
-          return {
-            filename,
-            filepath,
-            url: `/images/${filename}`,
-            isGenerated: true,
-            createdAt: new Date().toISOString()
-          };
+        } catch (_) {
+          // If model is unsupported on current tier, proceed to fallback
         }
       }
-    } catch (imgErr) {
-      logger.warn(`Imagen generation failed (${imgErr.message}). Falling back to curated image.`);
-    }
+    } catch (_) {}
   }
 
   // Resilient Fallback to freshest curated or generated image in library
   const latest = GalleryService.getLatestImageForDay(dayConfig.id);
   if (latest) {
+    logger.info(`AI image generation requires Vertex AI or pay-as-you-go image generation quota (Free Tier quota: 0). Using sacred artwork: ${latest.filename} (${latest.isGenerated ? 'Generated' : 'Curated Gallery'}).`);
     return {
       filename: latest.filename,
       filepath: path.join(config.imagesDir, latest.filename),
       url: latest.url,
       isGenerated: latest.isGenerated,
+      source: latest.isGenerated ? 'ai-generated' : 'curated-gallery',
       createdAt: latest.createdAt
     };
   }
 
   const filename = dayConfig.defaultImage;
   const filepath = path.join(config.imagesDir, filename);
+  logger.info(`Using default curated deity artwork: ${filename}.`);
   return {
     filename,
     filepath,
     url: `/images/${filename}`,
     isGenerated: false,
+    source: 'curated-gallery',
     createdAt: new Date().toISOString()
   };
 }
