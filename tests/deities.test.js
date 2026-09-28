@@ -85,3 +85,50 @@ test('getCurrentDayConfig returns valid configuration for today', () => {
   assert.ok(current.deity);
   assert.ok(current.sampleBlessings.length > 0);
 });
+
+test('All 7 days have canonical iconography and 4 scene variations', () => {
+  for (const day of DAYS_ORDER) {
+    const config = DAY_DEITY_MAPPING[day];
+    assert.ok(config.canonicalIconography, `${day} missing canonicalIconography`);
+    assert.ok(Array.isArray(config.sceneVariations), `${day} sceneVariations must be an array`);
+    assert.strictEqual(config.sceneVariations.length, 4, `${day} must have exactly 4 scene variations`);
+  }
+});
+
+test('buildDeityArtPrompt rotates variations across weeks and forbids text', async () => {
+  const { buildDeityArtPrompt } = await import('../src/services/ai.service.js');
+  const monday = DAY_DEITY_MAPPING.monday;
+
+  const promptWeek1 = buildDeityArtPrompt(monday, new Date('2026-09-01')); // Day 1 -> index 0
+  const promptWeek2 = buildDeityArtPrompt(monday, new Date('2026-09-08')); // Day 8 -> index 1
+  const promptWeek3 = buildDeityArtPrompt(monday, new Date('2026-09-15')); // Day 15 -> index 2
+  const promptWeek4 = buildDeityArtPrompt(monday, new Date('2026-09-22')); // Day 22 -> index 3
+
+  assert.notStrictEqual(promptWeek1, promptWeek2, 'Week 1 and Week 2 prompts must differ');
+  assert.notStrictEqual(promptWeek2, promptWeek3, 'Week 2 and Week 3 prompts must differ');
+  assert.notStrictEqual(promptWeek3, promptWeek4, 'Week 3 and Week 4 prompts must differ');
+
+  // Verify pure text-free negative constraint
+  assert.ok(promptWeek1.includes('Pure sacred artwork, completely free of any text'));
+  assert.ok(promptWeek1.includes(monday.canonicalIconography));
+});
+
+test('validateImageBuffer validates buffer size and magic bytes', async () => {
+  const { validateImageBuffer } = await import('../src/services/ai.service.js');
+
+  // Too small
+  assert.strictEqual(validateImageBuffer(Buffer.alloc(100)).valid, false);
+
+  // Invalid magic numbers
+  assert.strictEqual(validateImageBuffer(Buffer.alloc(50000)).valid, false);
+
+  // Valid PNG header
+  const pngHeader = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+  const validPng = Buffer.concat([pngHeader, Buffer.alloc(45000)]);
+  assert.strictEqual(validateImageBuffer(validPng).valid, true);
+
+  // Valid JPEG header
+  const jpgHeader = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]);
+  const validJpg = Buffer.concat([jpgHeader, Buffer.alloc(45000)]);
+  assert.strictEqual(validateImageBuffer(validJpg).valid, true);
+});

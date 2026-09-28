@@ -8,4 +8,5 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 Thumbs.db
-storage/temp/
+storage/
+public/images/gen_*
