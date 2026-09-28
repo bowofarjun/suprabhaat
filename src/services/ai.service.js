@@ -119,7 +119,7 @@ export async function getOrGenerateDeityImage(dayKey) {
   // If GenAI client is available, attempt dynamic generation
   if (clientObj && config.geminiApiKey && clientObj.type === 'google-genai') {
     try {
-      const prompt = `Vintage traditional Indian calendar art watercolor painting of ${dayConfig.deity}, ${dayConfig.promptGuide}. At the bottom, elegant traditional lettering says "${dayConfig.greetingHindi}" and "${dayConfig.greetingEnglish}". Ornate decorative paisley border, warm peaceful temple aesthetics, 8k masterpiece.`;
+      const prompt = `Vintage traditional Indian calendar art watercolor painting of ${dayConfig.deity}, ${dayConfig.promptGuide}. Ornate decorative gold paisley border, warm peaceful temple aesthetics, 8k masterpiece. Pure sacred artwork, completely free of any text, letters, inscriptions, or watermarks.`;
 
       // Modern Gemini image model endpoint
       const imageModels = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image'];
