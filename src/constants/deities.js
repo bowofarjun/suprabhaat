@@ -19,8 +19,9 @@ export const DAY_DEITY_MAPPING = {
       secondary: '#E0E7FF',
       accent: '#6366F1'
     },
-    defaultImage: 'monday_shiva_shubh_somvaar_2026-09-28_08-45-00_IST.jpg',
+    defaultImage: 'monday_shiva_shubh_somvaar_2026-09-28_10-52-00_IST.png',
     curatedImages: [
+      'monday_shiva_shubh_somvaar_2026-09-28_10-52-00_IST.png',
       'monday_shiva_shubh_somvaar_2026-09-28_08-45-00_IST.jpg',
       'monday_shiva_shubh_somvaar_2026-09-14_12-23-24_IST.png'
     ],
