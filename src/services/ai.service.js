@@ -152,17 +152,20 @@ export async function getOrGenerateDeityImage(dayKey) {
               };
             }
           }
-        } catch (_) {
-          // If model is unsupported on current tier, proceed to fallback
+        } catch (err) {
+          // If model is unsupported on current tier, log and proceed to next model/fallback
+          logger.warn(`AI image generation via ${model} unavailable: ${err.message}`);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      logger.warn(`AI image generation error: ${e.message}`);
+    }
   }
 
   // Resilient Fallback to freshest curated or generated image in library
   const latest = GalleryService.getLatestImageForDay(dayConfig.id);
   if (latest) {
-    logger.info(`AI image generation requires Vertex AI or pay-as-you-go image generation quota (Free Tier quota: 0). Using sacred artwork: ${latest.filename} (${latest.isGenerated ? 'Generated' : 'Curated Gallery'}).`);
+    logger.info(`AI image generation requires Vertex AI or pay-as-you-go quota (Free Tier quota: 0). Using sacred artwork: ${latest.filename} (${latest.isGenerated ? 'Generated' : 'Curated Gallery'}).`);
     return {
       filename: latest.filename,
       filepath: path.join(config.imagesDir, latest.filename),

@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { config } from '../config/index.js';
 import { DAY_DEITY_MAPPING, DAYS_ORDER } from '../constants/deities.js';
 import { formatDisplayDateTime } from '../utils/date.js';
@@ -10,15 +11,57 @@ import { logger } from '../utils/logger.js';
  */
 export class GalleryService {
   /**
+   * Generates fallback catalog items from deities mapping when directory cannot be read.
+   */
+  static getFallbackImages() {
+    const items = [];
+    for (const [dayKey, dayConfig] of Object.entries(DAY_DEITY_MAPPING)) {
+      const filename = dayConfig.defaultImage || `${dayKey}.jpg`;
+      items.push({
+        id: crypto.createHash('md5').update(filename).digest('hex').slice(0, 12),
+        filename,
+        url: `/images/${filename}`,
+        day: dayKey,
+        dayName: dayConfig.name,
+        hindiDay: dayConfig.hindiDay,
+        deity: dayConfig.deity,
+        deityHindi: dayConfig.deityHindi,
+        greetingHindi: dayConfig.greetingHindi,
+        greetingEnglish: dayConfig.greetingEnglish,
+        theme: dayConfig.theme,
+        colors: dayConfig.colors,
+        isDefault: dayKey === 'monday',
+        isGenerated: false,
+        createdAt: new Date().toISOString(),
+        formattedDate: formatDisplayDateTime(new Date()),
+        sampleBlessing: dayConfig.sampleBlessings ? dayConfig.sampleBlessings[0] : ''
+      });
+    }
+    return items;
+  }
+
+  /**
    * Scans and returns all available images with metadata and day associations.
    */
   static listImages(filterDay = 'monday') {
     const imagesDir = config.imagesDir;
-    if (!fs.existsSync(imagesDir)) {
-      return [];
+    let files = [];
+    try {
+      if (fs.existsSync(imagesDir)) {
+        files = fs.readdirSync(imagesDir);
+      }
+    } catch (err) {
+      logger.warn(`Failed to scan images directory (${imagesDir}): ${err.message}. Serving fallback curated catalog.`);
     }
 
-    const files = fs.readdirSync(imagesDir);
+    if (!files || files.length === 0) {
+      const fallbacks = this.getFallbackImages();
+      const normalizedFilter = (filterDay || 'monday').toLowerCase();
+      if (normalizedFilter === 'all') return fallbacks;
+      const filtered = fallbacks.filter((item) => item.day === normalizedFilter);
+      return filtered.length > 0 ? filtered : fallbacks.filter((item) => item.day === 'monday');
+    }
+
     const validExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
 
     const items = [];
@@ -73,7 +116,7 @@ export class GalleryService {
       const formattedDate = formatDisplayDateTime(fileDate);
 
       items.push({
-        id: Buffer.from(filename).toString('hex').slice(0, 12),
+        id: crypto.createHash('md5').update(filename).digest('hex').slice(0, 12),
         filename,
         url: `/images/${filename}`,
         day: day,
